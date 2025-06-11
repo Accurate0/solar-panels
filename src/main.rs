@@ -167,11 +167,7 @@ async fn main() -> anyhow::Result<()> {
 
     let context = BotContext(BotContextInner { solar_api }.into());
 
-    let config = ConfigBuilder::new(
-        token.clone(),
-        Intents::GUILD_MESSAGES | Intents::MESSAGE_CONTENT,
-    )
-    .build();
+    let config = ConfigBuilder::new(token.clone(), Intents::GUILD_MESSAGES).build();
 
     let mut shard = Shard::with_config(ShardId::ONE, config);
 
