@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: solar
+  namespace: solar-panels
+  annotations:
+    secrets.infisical.com/auto-reload: "true"
+spec:
+  selector:
+    matchLabels:
+      app: solar
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: solar
+    spec:
+      containers:
+        - name: solar
+          image: solar:latest
+          imagePullPolicy: Always
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /health
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 3
+            periodSeconds: 30
+            successThreshold: 1
+            timeoutSeconds: 1
+          envFrom:
+            - secretRef:
+                name: solar-managed-secrets
+            - secretRef:
+                name: solar-database-secret
