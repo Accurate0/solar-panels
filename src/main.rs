@@ -1,4 +1,4 @@
-use axum::{extract::State, http::StatusCode, routing::get};
+use axum::{Json, extract::State, http::StatusCode, routing::get};
 use goodwe::GoodWeSemsAPI;
 use sqlx::{Connection, postgres::PgPoolOptions};
 use std::{future::IntoFuture, ops::Deref, sync::Arc};
@@ -16,6 +16,7 @@ use twilight_util::builder::{
     command::CommandBuilder,
     embed::{EmbedBuilder, EmbedFieldBuilder},
 };
+use types::{AppError, SolarCurrentResponse};
 use vesper::{
     framework::DefaultError,
     macros::{command, error_handler},
@@ -23,6 +24,7 @@ use vesper::{
 };
 
 mod goodwe;
+mod types;
 
 #[derive(Clone)]
 struct BotContext(Arc<BotContextInner>);
@@ -124,6 +126,19 @@ async fn solar(ctx: &mut SlashContext<BotContext>) -> DefaultCommandResult {
     Ok(())
 }
 
+async fn solar_current(
+    State(ctx): State<BotContext>,
+) -> Result<Json<SolarCurrentResponse>, AppError> {
+    let login_data = ctx.solar_api.get_new_or_cached_login_data().await?;
+    let resp = ctx.solar_api.get_and_save_solar_data(login_data).await?;
+
+    Ok(Json(SolarCurrentResponse {
+        current_production_wh: resp.data.kpi.pac,
+        today_production_kwh: resp.data.kpi.power,
+        all_time_production_kwh: resp.data.kpi.total_power,
+    }))
+}
+
 async fn health(ctx: State<BotContext>) -> StatusCode {
     let resp = ctx.solar_api.db().acquire().await;
 
@@ -179,6 +194,7 @@ async fn main() -> anyhow::Result<()> {
 
     let app = axum::Router::new()
         .route("/health", get(health))
+        .route("/current", get(solar_current))
         .with_state(context.clone());
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:8000").await.unwrap();
