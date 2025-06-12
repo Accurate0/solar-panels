@@ -102,7 +102,7 @@ async fn solar(ctx: &mut SlashContext<BotContext>) -> DefaultCommandResult {
         .title("Solar")
         .field(EmbedFieldBuilder::new(
             "Current",
-            format!("{} kWh", solar_data.data.kpi.pac),
+            format!("{} Wh", solar_data.data.kpi.pac),
         ))
         .field(EmbedFieldBuilder::new(
             "Total for today",
