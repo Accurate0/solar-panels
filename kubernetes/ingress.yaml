@@ -23,3 +23,7 @@ spec:
                 name: solar-panel-api
                 port:
                   name: app
+  tls:
+    - secretName: solar-panels-inf-k8s-tls
+      hosts:
+        - solar-panels.inf-k8s.net
