@@ -148,6 +148,7 @@ async fn solar_current(
     }))
 }
 
+// We're gonna need this soon: https://docs.timescale.com/use-timescale/latest/query-data/advanced-analytic-queries/
 async fn solar_history(
     State(ctx): State<BotContext>,
 ) -> Result<Json<SolarHistoryResponse>, AppError> {
