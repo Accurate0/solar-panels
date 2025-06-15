@@ -174,7 +174,7 @@ async fn solar_history(
             wh: saved_data.data.kpi.pac,
         }
     })
-    .partition(|r| (now - r.at).num_hours() <= 24);
+    .partition(|r| now.date() == r.at.date());
 
     Ok(Json(SolarHistoryResponse { today, yesterday }))
 }
