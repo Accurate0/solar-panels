@@ -6,6 +6,17 @@ on:
   workflow_dispatch:
 
 jobs:
+  build-web:
+    permissions:
+      packages: write
+
+    uses: Accurate0/workflows/.github/workflows/build-push-docker.yaml@main
+    with:
+      directory: web
+      image-name: solar-web
+      docker-build-args: ""
+      use-rust-caching: true
+
   build:
     permissions:
       packages: write
@@ -19,7 +30,9 @@ jobs:
       use-rust-caching: true
 
   deploy:
-    needs: build
+    needs:
+      - build
+      - build-web
     uses: Accurate0/workflows/.github/workflows/deploy-app-k8s.yaml@main
     with:
       application-name: solar-panels

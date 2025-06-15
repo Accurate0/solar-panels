@@ -9,8 +9,9 @@ use reqwest::{
 use sqlx::PgPool;
 use types::{LoginData, LoginRequest, LoginResponse, PlantDetailsByPowerStationIdResponse};
 
-mod types;
+pub mod types;
 
+#[derive(Clone)]
 pub struct GoodWeSemsAPI {
     db: PgPool,
     username: String,
@@ -53,7 +54,18 @@ impl GoodWeSemsAPI {
         }
     }
 
-    pub async fn get_and_save_solar_data(
+    pub async fn get_latest_saved_solar_data(
+        &self,
+    ) -> Result<PlantDetailsByPowerStationIdResponse, GoodWeSemsAPIError> {
+        let solar_data =
+            sqlx::query!("SELECT raw_data FROM solar_data ORDER BY created_at DESC LIMIT 1")
+                .fetch_one(&self.db)
+                .await?;
+
+        Ok(serde_json::from_value(solar_data.raw_data).unwrap())
+    }
+
+    pub async fn save_solar_data(
         &self,
         login: LoginData,
     ) -> Result<PlantDetailsByPowerStationIdResponse, GoodWeSemsAPIError> {
@@ -101,7 +113,7 @@ impl GoodWeSemsAPI {
 
         let now = chrono::offset::Utc::now().naive_utc();
         if let Some(latest_login) = latest_login_data {
-            if (now - latest_login.created_at).num_minutes() > 10 {
+            if (now - latest_login.created_at).num_minutes() > 5 {
                 self.login_and_save().await
             } else {
                 Ok(serde_json::from_value::<LoginData>(latest_login.login_data).unwrap())
@@ -133,7 +145,7 @@ impl GoodWeSemsAPI {
                 pwd: self.password.clone(),
             }).header(
             "token",
-            // base64 of 
+            // base64 of
             // {"uid":"","timestamp":0,"token":"","client":"web","version":"","language":"en"}
             "eyJ1aWQiOiIiLCJ0aW1lc3RhbXAiOjAsInRva2VuIjoiIiwiY2xpZW50Ijoid2ViIiwidmVyc2lvbiI6IiIsImxhbmd1YWdlIjoiZW4ifQ=="
                 .parse::<HeaderValue>()

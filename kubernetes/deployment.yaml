@@ -34,3 +34,33 @@ spec:
                 name: solar-managed-secrets
             - secretRef:
                 name: solar-database-secret
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: solar-web
+  namespace: solar-panels
+spec:
+  selector:
+    matchLabels:
+      app: solar-web
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: solar-web
+    spec:
+      containers:
+        - name: solar-web
+          image: solar-web:latest
+          imagePullPolicy: Always
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /
+              port: 3000
+              scheme: HTTP
+            initialDelaySeconds: 3
+            periodSeconds: 30
+            successThreshold: 1
+            timeoutSeconds: 1

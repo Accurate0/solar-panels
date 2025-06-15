@@ -1,7 +1,21 @@
-use axum::{Json, extract::State, http::StatusCode, routing::get};
-use goodwe::GoodWeSemsAPI;
+use axum::{
+    Json,
+    body::Body,
+    extract::State,
+    http::{Request, StatusCode},
+    routing::get,
+};
+use chrono::Utc;
+use goodwe::{GoodWeSemsAPI, GoodWeSemsAPIError, types::PlantDetailsByPowerStationIdResponse};
+use reqwest::Method;
 use sqlx::{Connection, postgres::PgPoolOptions};
-use std::{future::IntoFuture, ops::Deref, sync::Arc};
+use std::{future::IntoFuture, ops::Deref, sync::Arc, time::Duration};
+use tower::limit::GlobalConcurrencyLimitLayer;
+use tower_http::{
+    LatencyUnit,
+    cors::{AllowHeaders, AllowOrigin, CorsLayer},
+    trace::{DefaultOnRequest, DefaultOnResponse, TraceLayer},
+};
 use tracing::Level;
 use tracing_subscriber::{filter::Targets, layer::SubscriberExt, util::SubscriberInitExt};
 use twilight_cache_inmemory::{DefaultCacheModels, InMemoryCacheBuilder, ResourceType};
@@ -16,7 +30,7 @@ use twilight_util::builder::{
     command::CommandBuilder,
     embed::{EmbedBuilder, EmbedFieldBuilder},
 };
-use types::{AppError, SolarCurrentResponse};
+use types::{AppError, GenerationHistory, SolarCurrentResponse, SolarHistoryResponse};
 use vesper::{
     framework::DefaultError,
     macros::{command, error_handler},
@@ -93,12 +107,7 @@ async fn handle_interaction_error(ctx: &mut SlashContext<BotContext>, error: Def
 async fn solar(ctx: &mut SlashContext<BotContext>) -> DefaultCommandResult {
     ctx.defer(false).await?;
 
-    let login_data = ctx.data.solar_api.get_new_or_cached_login_data().await?;
-    let solar_data = ctx
-        .data
-        .solar_api
-        .get_and_save_solar_data(login_data)
-        .await?;
+    let solar_data = ctx.data.solar_api.get_latest_saved_solar_data().await?;
 
     let embed = EmbedBuilder::new()
         .title("Solar")
@@ -129,14 +138,45 @@ async fn solar(ctx: &mut SlashContext<BotContext>) -> DefaultCommandResult {
 async fn solar_current(
     State(ctx): State<BotContext>,
 ) -> Result<Json<SolarCurrentResponse>, AppError> {
-    let login_data = ctx.solar_api.get_new_or_cached_login_data().await?;
-    let resp = ctx.solar_api.get_and_save_solar_data(login_data).await?;
+    let resp = ctx.solar_api.get_latest_saved_solar_data().await?;
 
     Ok(Json(SolarCurrentResponse {
+        yesterday_production_kwh: 0.0,
+        month_production_kwh: resp.data.kpi.month_generation,
         current_production_wh: resp.data.kpi.pac,
         today_production_kwh: resp.data.kpi.power,
         all_time_production_kwh: resp.data.kpi.total_power,
     }))
+}
+
+async fn solar_history(
+    State(ctx): State<BotContext>,
+) -> Result<Json<SolarHistoryResponse>, AppError> {
+    let now = chrono::offset::Utc::now().naive_utc();
+    let (today, yesterday): (Vec<_>, Vec<_>) = sqlx::query!(
+        "SELECT raw_data, created_at FROM solar_data WHERE created_at > NOW() - INTERVAL '48 HOUR'"
+    )
+    .fetch_all(ctx.solar_api.db())
+    .await?
+    .into_iter()
+    .map(|r| {
+        let saved_data =
+            serde_json::from_value::<PlantDetailsByPowerStationIdResponse>(r.raw_data).unwrap();
+        GenerationHistory {
+            cummalative_kwh: saved_data.data.kpi.power,
+            at: r.created_at,
+            js_at: r
+                .created_at
+                .and_local_timezone(Utc)
+                .unwrap()
+                .format("%+")
+                .to_string(),
+            wh: saved_data.data.kpi.pac,
+        }
+    })
+    .partition(|r| (now - r.at).num_hours() <= 24);
+
+    Ok(Json(SolarHistoryResponse { today, yesterday }))
 }
 
 async fn health(ctx: State<BotContext>) -> StatusCode {
@@ -180,7 +220,12 @@ async fn main() -> anyhow::Result<()> {
         goodwe_powerstation_id,
     );
 
-    let context = BotContext(BotContextInner { solar_api }.into());
+    let context = BotContext(
+        BotContextInner {
+            solar_api: solar_api.clone(),
+        }
+        .into(),
+    );
 
     let config = ConfigBuilder::new(token.clone(), Intents::GUILD_MESSAGES).build();
 
@@ -192,9 +237,35 @@ async fn main() -> anyhow::Result<()> {
         .resource_types(ResourceType::MESSAGE | ResourceType::GUILD)
         .build();
 
-    let app = axum::Router::new()
+    let routes = axum::Router::new()
         .route("/health", get(health))
         .route("/current", get(solar_current))
+        .route("/history", get(solar_history));
+
+    let app = axum::Router::new()
+        .nest("/api", routes)
+        .layer(
+            CorsLayer::new()
+                .allow_origin(AllowOrigin::list([
+                    "http://localhost:5173".parse()?,
+                    "https://solar-panels.anurag.sh".parse()?,
+                ]))
+                .allow_methods([Method::GET, Method::OPTIONS])
+                .allow_headers(AllowHeaders::any()),
+        )
+        .layer(
+            TraceLayer::new_for_http()
+                .make_span_with(|request: &Request<Body>| {
+                    tracing::info_span!("api", uri = request.uri().to_string())
+                })
+                .on_request(DefaultOnRequest::new().level(Level::INFO))
+                .on_response(
+                    DefaultOnResponse::new()
+                        .level(Level::INFO)
+                        .latency_unit(LatencyUnit::Millis),
+                ),
+        )
+        .layer(GlobalConcurrencyLimitLayer::new(2048))
         .with_state(context.clone());
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:8000").await.unwrap();
@@ -241,6 +312,24 @@ async fn main() -> anyhow::Result<()> {
     interaction_client
         .set_global_commands(&updated_commands)
         .await?;
+
+    tracing::info!("spawning background thread");
+    tokio::spawn(async move {
+        loop {
+            let solar_api = solar_api.clone();
+            let fut = async move {
+                let login_data = solar_api.get_new_or_cached_login_data().await?;
+                solar_api.save_solar_data(login_data).await?;
+                Ok::<(), GoodWeSemsAPIError>(())
+            };
+
+            if let Err(e) = fut.await {
+                tracing::error!("error fetching data: {e}");
+            }
+
+            tokio::time::sleep(Duration::from_secs(60)).await
+        }
+    });
 
     tracing::info!("starting event loop");
     while let Some(event) = shard.next_event(EventTypeFlags::all()).await {

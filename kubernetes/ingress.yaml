@@ -13,10 +13,20 @@ metadata:
 spec:
   ingressClassName: nginx
   rules:
-    - host: solar-panels.inf-k8s.net
+    - host: solar-panels.anurag.sh
       http:
         paths:
           - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: solar-panel-web
+                port:
+                  name: web
+    - host: solar-panels.anurag.sh
+      http:
+        paths:
+          - path: /api
             pathType: Prefix
             backend:
               service:
@@ -24,6 +34,6 @@ spec:
                 port:
                   name: app
   tls:
-    - secretName: solar-panels-inf-k8s-tls
+    - secretName: solar-panels-anurag-sh-tls
       hosts:
-        - solar-panels.inf-k8s.net
+        - solar-panels.anurag.sh
