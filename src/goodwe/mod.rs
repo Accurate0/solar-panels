@@ -58,7 +58,7 @@ impl GoodWeSemsAPI {
         &self,
     ) -> Result<PlantDetailsByPowerStationIdResponse, GoodWeSemsAPIError> {
         let solar_data =
-            sqlx::query!("SELECT raw_data FROM solar_data ORDER BY created_at DESC LIMIT 1")
+            sqlx::query!("SELECT raw_data FROM solar_data_tsdb ORDER BY time DESC LIMIT 1")
                 .fetch_one(&self.db)
                 .await?;
 
@@ -96,6 +96,14 @@ impl GoodWeSemsAPI {
 
         sqlx::query!(
             "INSERT INTO solar_data (current_kwh, raw_data) VALUES ($1, $2)",
+            kwh,
+            raw_data
+        )
+        .execute(&self.db)
+        .await?;
+
+        sqlx::query!(
+            "INSERT INTO solar_data_tsdb (current_kwh, raw_data) VALUES ($1, $2)",
             kwh,
             raw_data
         )

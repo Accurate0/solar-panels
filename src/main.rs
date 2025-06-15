@@ -153,7 +153,7 @@ async fn solar_history(
 ) -> Result<Json<SolarHistoryResponse>, AppError> {
     let now = chrono::offset::Utc::now().naive_utc();
     let (today, yesterday): (Vec<_>, Vec<_>) = sqlx::query!(
-        "SELECT raw_data, created_at FROM solar_data WHERE created_at > NOW() - INTERVAL '48 HOUR'"
+        "SELECT raw_data, time FROM solar_data_tsdb WHERE time > NOW() - INTERVAL '48 HOUR'"
     )
     .fetch_all(ctx.solar_api.db())
     .await?
@@ -163,9 +163,9 @@ async fn solar_history(
             serde_json::from_value::<PlantDetailsByPowerStationIdResponse>(r.raw_data).unwrap();
         GenerationHistory {
             cummalative_kwh: saved_data.data.kpi.power,
-            at: r.created_at,
+            at: r.time,
             js_at: r
-                .created_at
+                .time
                 .and_local_timezone(Utc)
                 .unwrap()
                 .format("%+")
