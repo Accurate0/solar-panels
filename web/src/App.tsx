@@ -53,7 +53,7 @@ export function ChartLineInteractive() {
   return (
     <div>
       <h1 className="scroll-m-20 text-left text-4xl font-bold tracking-tight text-balance">
-        Solar details
+        Solar panels
       </h1>
       <div className="flex flex-row flex-1 gap-4 py-4 w-full">
         <Card className="flex-grow-1">
