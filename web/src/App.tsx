@@ -66,15 +66,6 @@ export function ChartLineInteractive() {
         </Card>
         <Card className="flex-grow-1">
           <CardHeader>
-            <CardDescription>Today</CardDescription>
-            <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-              {current.todayProductionKwh} kWh
-            </CardTitle>
-          </CardHeader>
-        </Card>
-
-        <Card className="flex-grow-1">
-          <CardHeader>
             <CardDescription>Month</CardDescription>
             <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
               {current.monthProductionKwh} kWh
@@ -102,7 +93,7 @@ export function ChartLineInteractive() {
                 <button
                   key={chart}
                   data-active={activeChart === chart}
-                  className="data-[active=true]:bg-muted/50 flex flex-1 flex-col justify-center gap-1 border-t px-6 py-4 text-left even:border-l sm:border-t-0 sm:border-l sm:px-8 sm:py-6"
+                  className="data-[active=true]:bg-muted/50 flex flex-1 flex-col justify-center gap-1 border-t px-6 py-4 text-left even:border-l sm:border-t-0 sm:border-l sm:px-8 sm:py-4"
                   onClick={() => setActiveChart(chart)}
                 >
                   <span className="text-muted-foreground text-xs">
