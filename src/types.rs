@@ -7,7 +7,7 @@ use reqwest::StatusCode;
 pub struct SolarCurrentResponse {
     pub current_production_wh: f64,
     pub today_production_kwh: f64,
-    pub today_production_kwh: f64,
+    pub month_production_kwh: f64,
     pub all_time_production_kwh: f64,
 }
 

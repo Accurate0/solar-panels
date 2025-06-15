@@ -141,7 +141,6 @@ async fn solar_current(
     let resp = ctx.solar_api.get_latest_saved_solar_data().await?;
 
     Ok(Json(SolarCurrentResponse {
-        yesterday_production_kwh: 0.0,
         month_production_kwh: resp.data.kpi.month_generation,
         current_production_wh: resp.data.kpi.pac,
         today_production_kwh: resp.data.kpi.power,
