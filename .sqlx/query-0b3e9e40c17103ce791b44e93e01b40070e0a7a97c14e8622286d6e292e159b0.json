@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT raw_data, created_at FROM solar_data WHERE created_at > NOW() - INTERVAL '48 HOUR'",
+  "query": "SELECT raw_data, time FROM solar_data_tsdb WHERE time > NOW() - INTERVAL '48 HOUR'",
   "describe": {
     "columns": [
       {
@@ -10,7 +10,7 @@
       },
       {
         "ordinal": 1,
-        "name": "created_at",
+        "name": "time",
         "type_info": "Timestamp"
       }
     ],
@@ -22,5 +22,5 @@
       false
     ]
   },
-  "hash": "d06705150c37b1b27e656b00c456b31b7cbffeff4cfaad1df2383e5ad21e93a3"
+  "hash": "0b3e9e40c17103ce791b44e93e01b40070e0a7a97c14e8622286d6e292e159b0"
 }

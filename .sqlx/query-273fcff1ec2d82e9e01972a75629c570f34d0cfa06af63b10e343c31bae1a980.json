@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT raw_data FROM solar_data ORDER BY created_at DESC LIMIT 1",
+  "query": "SELECT raw_data FROM solar_data_tsdb ORDER BY time DESC LIMIT 1",
   "describe": {
     "columns": [
       {
@@ -16,5 +16,5 @@
       false
     ]
   },
-  "hash": "f39b2d20fa59597962b44051f72485f4e27af21b825e7e393c5ed5ccdb866f77"
+  "hash": "273fcff1ec2d82e9e01972a75629c570f34d0cfa06af63b10e343c31bae1a980"
 }
