@@ -55,7 +55,7 @@ export function ChartLineInteractive() {
       <h1 className="scroll-m-20 text-left text-4xl font-bold tracking-tight text-balance">
         Solar panels
       </h1>
-      <div className="flex flex-row flex-1 gap-4 py-4 w-full">
+      <div className="flex md:flex-row flex-1 gap-4 py-4 w-full flex-col">
         <Card className="flex-grow-1">
           <CardHeader>
             <CardDescription>Current</CardDescription>
