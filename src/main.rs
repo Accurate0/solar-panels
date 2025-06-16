@@ -5,7 +5,7 @@ use axum::{
     http::{Request, StatusCode},
     routing::get,
 };
-use chrono::{FixedOffset, Utc};
+use chrono::Utc;
 use goodwe::{GoodWeSemsAPI, GoodWeSemsAPIError, types::PlantDetailsByPowerStationIdResponse};
 use reqwest::Method;
 use sqlx::{Connection, postgres::PgPoolOptions};
