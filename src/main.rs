@@ -5,7 +5,7 @@ use axum::{
     http::{Request, StatusCode},
     routing::get,
 };
-use chrono::Utc;
+use chrono::{FixedOffset, Utc};
 use goodwe::{GoodWeSemsAPI, GoodWeSemsAPIError, types::PlantDetailsByPowerStationIdResponse};
 use reqwest::Method;
 use sqlx::{Connection, postgres::PgPoolOptions};
@@ -152,7 +152,7 @@ async fn solar_current(
 async fn solar_history(
     State(ctx): State<BotContext>,
 ) -> Result<Json<SolarHistoryResponse>, AppError> {
-    let now = chrono::offset::Utc::now().naive_utc();
+    let now = chrono::offset::Utc::now().with_timezone(&chrono_tz::Australia::Perth);
     let (today, yesterday): (Vec<_>, Vec<_>) = sqlx::query!(
         "SELECT raw_data, time FROM solar_data_tsdb WHERE time > NOW() - INTERVAL '48 HOUR'"
     )
@@ -165,16 +165,18 @@ async fn solar_history(
         GenerationHistory {
             cummalative_kwh: saved_data.data.kpi.power,
             at: r.time,
-            js_at: r
-                .time
-                .and_local_timezone(Utc)
-                .unwrap()
-                .format("%+")
-                .to_string(),
+            js_at: r.time.and_local_timezone(Utc).unwrap().to_rfc3339(),
             wh: saved_data.data.kpi.pac,
         }
     })
-    .partition(|r| now.date() == r.at.date());
+    .partition(|r| {
+        now.date_naive()
+            == r.at
+                .and_local_timezone(chrono_tz::Australia::Perth)
+                .single()
+                .unwrap()
+                .date_naive()
+    });
 
     Ok(Json(SolarHistoryResponse { today, yesterday }))
 }
