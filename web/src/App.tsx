@@ -66,7 +66,7 @@ export function ChartLineInteractive() {
 
         <Card className="flex-grow-1">
           <CardHeader>
-            <CardDescription>Last 15 minutes (avg)</CardDescription>
+            <CardDescription>15 minutes (avg)</CardDescription>
             <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
               {current.statistics.averages.last15Mins} Wh
             </CardTitle>
@@ -75,7 +75,7 @@ export function ChartLineInteractive() {
 
         <Card className="flex-grow-1">
           <CardHeader>
-            <CardDescription>Last 1 hour (avg)</CardDescription>
+            <CardDescription>1 hour (avg)</CardDescription>
             <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
               {current.statistics.averages.last1Hour} Wh
             </CardTitle>
@@ -84,7 +84,7 @@ export function ChartLineInteractive() {
 
         <Card className="flex-grow-1">
           <CardHeader>
-            <CardDescription>Last 3 hours (avg)</CardDescription>
+            <CardDescription>3 hours (avg)</CardDescription>
             <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
               {current.statistics.averages.last3Hours} Wh
             </CardTitle>
