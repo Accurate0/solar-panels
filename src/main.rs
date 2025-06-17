@@ -8,7 +8,7 @@ use axum::{
 use chrono::{FixedOffset, Utc};
 use goodwe::{GoodWeSemsAPI, GoodWeSemsAPIError, types::PlantDetailsByPowerStationIdResponse};
 use reqwest::Method;
-use sqlx::{Connection, postgres::PgPoolOptions};
+use sqlx::{Connection, postgres::PgPoolOptions, prelude::FromRow};
 use std::{future::IntoFuture, ops::Deref, sync::Arc, time::Duration};
 use tower::limit::GlobalConcurrencyLimitLayer;
 use tower_http::{
@@ -30,7 +30,10 @@ use twilight_util::builder::{
     command::CommandBuilder,
     embed::{EmbedBuilder, EmbedFieldBuilder},
 };
-use types::{AppError, GenerationHistory, SolarCurrentResponse, SolarHistoryResponse};
+use types::{
+    AppError, GenerationHistory, SolarCurrentResponse, SolarCurrentStatistics,
+    SolarCurrentStatisticsAverages, SolarHistoryResponse,
+};
 use vesper::{
     framework::DefaultError,
     macros::{command, error_handler},
@@ -108,21 +111,36 @@ async fn solar(ctx: &mut SlashContext<BotContext>) -> DefaultCommandResult {
     ctx.defer(false).await?;
 
     let solar_data = ctx.data.solar_api.get_latest_saved_solar_data().await?;
+    let SolarCurrentStatistics { averages } = solar_statistics(&ctx.data.solar_api).await?;
 
     let embed = EmbedBuilder::new()
         .title("Solar")
-        .field(EmbedFieldBuilder::new(
-            "Current",
-            format!("{} Wh", solar_data.data.kpi.pac),
-        ))
-        .field(EmbedFieldBuilder::new(
-            "Total for today",
-            format!("{} kWh", solar_data.data.kpi.power),
-        ))
-        .field(EmbedFieldBuilder::new(
-            "All time total",
-            format!("{} kWh", solar_data.data.kpi.total_power),
-        ))
+        .field(
+            EmbedFieldBuilder::new("Current", format!("{} Wh", solar_data.data.kpi.pac)).inline(),
+        )
+        .field(
+            EmbedFieldBuilder::new(
+                "Total for today",
+                format!("{} kWh", solar_data.data.kpi.power),
+            )
+            .inline(),
+        )
+        .field(
+            EmbedFieldBuilder::new(
+                "All time total",
+                format!("{} kWh", solar_data.data.kpi.total_power),
+            )
+            .inline(),
+        )
+        .field(
+            EmbedFieldBuilder::new("15 min avg", format!("{} Wh", averages.last_15_mins)).inline(),
+        )
+        .field(
+            EmbedFieldBuilder::new("1 hour avg", format!("{} Wh", averages.last_1_hour)).inline(),
+        )
+        .field(
+            EmbedFieldBuilder::new("3 hour avg", format!("{} Wh", averages.last_3_hours)).inline(),
+        )
         .color(0x40944c)
         .validate()?
         .build();
@@ -135,16 +153,67 @@ async fn solar(ctx: &mut SlashContext<BotContext>) -> DefaultCommandResult {
     Ok(())
 }
 
+pub async fn get_average_for_last_n_minutes(
+    s: &'static str,
+    solar_api: &GoodWeSemsAPI,
+) -> Result<Option<f64>, anyhow::Error> {
+    let query = format!(
+        "SELECT avg(current_kwh), time_bucket('{s} minutes', time) as time_bucket FROM solar_data_tsdb WHERE (time + '8 hour') > (NOW() + '8 hour') - INTERVAL '{s} MINUTE' GROUP BY time_bucket",
+    );
+
+    #[derive(FromRow)]
+    struct Row {
+        avg: Option<f64>,
+    }
+
+    let avg_15_mins: Row = sqlx::query_as(&query).fetch_one(solar_api.db()).await?;
+
+    Ok(avg_15_mins.avg)
+}
+
+fn round(n: f64) -> f64 {
+    (n * 100.0).round() / 100.0
+}
+
+pub async fn solar_statistics(
+    solar_api: &GoodWeSemsAPI,
+) -> Result<SolarCurrentStatistics, anyhow::Error> {
+    let avg_15_mins = get_average_for_last_n_minutes("15", solar_api);
+    let avg_1_hour = get_average_for_last_n_minutes("60", solar_api);
+    let avg_3_hours = get_average_for_last_n_minutes("180", solar_api);
+
+    let (avg_15_mins, avg_1_hour, avg_3_hours) =
+        futures::try_join!(avg_15_mins, avg_1_hour, avg_3_hours)?;
+
+    Ok(SolarCurrentStatistics {
+        averages: SolarCurrentStatisticsAverages {
+            last_15_mins: round(avg_15_mins.unwrap()),
+            last_1_hour: round(avg_1_hour.unwrap()),
+            last_3_hours: round(avg_3_hours.unwrap()),
+        },
+    })
+}
+
 async fn solar_current(
     State(ctx): State<BotContext>,
 ) -> Result<Json<SolarCurrentResponse>, AppError> {
     let resp = ctx.solar_api.get_latest_saved_solar_data().await?;
+    let yesterday_results = sqlx::query!(
+        "SELECT raw_data FROM solar_data_tsdb WHERE (time + '8 hour')::date = (now() + '8 hour')::date - INTEGER '1' ORDER BY time DESC LIMIT 1"
+    )
+        .fetch_one(ctx.solar_api.db())
+        .await?;
+
+    let yesterday_value =
+        serde_json::from_value::<PlantDetailsByPowerStationIdResponse>(yesterday_results.raw_data)?;
 
     Ok(Json(SolarCurrentResponse {
+        yesterday_production_kwh: yesterday_value.data.kpi.power,
         month_production_kwh: resp.data.kpi.month_generation,
         current_production_wh: resp.data.kpi.pac,
         today_production_kwh: resp.data.kpi.power,
         all_time_production_kwh: resp.data.kpi.total_power,
+        statistics: solar_statistics(&ctx.solar_api).await?,
     }))
 }
 
@@ -157,19 +226,16 @@ async fn solar_history(
         .fixed_offset();
 
     let (today, yesterday): (Vec<_>, Vec<_>) = sqlx::query!(
-        "SELECT raw_data, time FROM solar_data_tsdb WHERE time > NOW() - INTERVAL '48 HOUR'"
+        "SELECT avg(current_kwh), time_bucket('5 minutes', time) as bucket_time FROM solar_data_tsdb WHERE (time + '8 hour') > (NOW() + '8 hour') - INTERVAL '48 HOUR' GROUP BY bucket_time ORDER BY bucket_time ASC"
     )
     .fetch_all(ctx.solar_api.db())
     .await?
     .into_iter()
     .map(|r| {
-        let saved_data =
-            serde_json::from_value::<PlantDetailsByPowerStationIdResponse>(r.raw_data).unwrap();
         GenerationHistory {
-            cummalative_kwh: saved_data.data.kpi.power,
-            at: r.time,
-            js_at: r.time.and_local_timezone(Utc).unwrap().to_rfc3339(),
-            wh: saved_data.data.kpi.pac,
+            at: r.bucket_time.unwrap(),
+            at_utc: r.bucket_time.unwrap().and_local_timezone(Utc).unwrap().to_rfc3339(),
+            wh: r.avg.unwrap()
         }
     })
     .partition(|r| {
@@ -177,8 +243,6 @@ async fn solar_history(
             r.at.checked_add_offset(FixedOffset::east_opt(8 * 3600).unwrap())
                 .unwrap()
                 .date();
-
-        tracing::info!("{:?} == {:?}", now.date_naive(), history_date);
 
         now.date_naive() == history_date
     });
@@ -320,23 +384,27 @@ async fn main() -> anyhow::Result<()> {
         .set_global_commands(&updated_commands)
         .await?;
 
-    tracing::info!("spawning background thread");
-    tokio::spawn(async move {
-        loop {
-            let solar_api = solar_api.clone();
-            let fut = async move {
-                let login_data = solar_api.get_new_or_cached_login_data().await?;
-                solar_api.save_solar_data(login_data).await?;
-                Ok::<(), GoodWeSemsAPIError>(())
-            };
+    if cfg!(debug_assertions) {
+        tracing::info!("skipping background thread in debug");
+    } else {
+        tracing::info!("spawning background thread");
+        tokio::spawn(async move {
+            loop {
+                let solar_api = solar_api.clone();
+                let fut = async move {
+                    let login_data = solar_api.get_new_or_cached_login_data().await?;
+                    solar_api.save_solar_data(login_data).await?;
+                    Ok::<(), GoodWeSemsAPIError>(())
+                };
 
-            if let Err(e) = fut.await {
-                tracing::error!("error fetching data: {e}");
+                if let Err(e) = fut.await {
+                    tracing::error!("error fetching data: {e}");
+                }
+
+                tokio::time::sleep(Duration::from_secs(60)).await
             }
-
-            tokio::time::sleep(Duration::from_secs(60)).await
-        }
-    });
+        });
+    }
 
     tracing::info!("starting event loop");
     while let Some(event) = shard.next_event(EventTypeFlags::all()).await {

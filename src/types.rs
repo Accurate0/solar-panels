@@ -4,20 +4,35 @@ use reqwest::StatusCode;
 
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct SolarCurrentStatisticsAverages {
+    pub last_15_mins: f64,
+    pub last_1_hour: f64,
+    pub last_3_hours: f64,
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SolarCurrentStatistics {
+    pub averages: SolarCurrentStatisticsAverages,
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SolarCurrentResponse {
     pub current_production_wh: f64,
     pub today_production_kwh: f64,
+    pub yesterday_production_kwh: f64,
     pub month_production_kwh: f64,
     pub all_time_production_kwh: f64,
+    pub statistics: SolarCurrentStatistics,
 }
 
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GenerationHistory {
-    pub cummalative_kwh: f64,
     pub wh: f64,
     pub at: NaiveDateTime,
-    pub js_at: String,
+    pub at_utc: String,
 }
 
 #[derive(serde::Serialize)]

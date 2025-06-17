@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT raw_data FROM solar_data_tsdb WHERE (time + '8 hour')::date = (now() + '8 hour')::date - INTEGER '1' ORDER BY time DESC LIMIT 1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "raw_data",
+        "type_info": "Jsonb"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "622511ed509ab98ea939cbe2eedad0b1ac8e5ae4fdcf7b8fd17bd1485ea409ba"
+}

@@ -41,14 +41,13 @@ export function ChartLineInteractive() {
 
   const total = React.useMemo(
     () => ({
-      today: today[today.length - 1].cummalativeKwh,
-      yesterday:
-        yesterday.length === 0
-          ? 0
-          : yesterday[yesterday.length - 1].cummalativeKwh,
+      today: current.todayProductionKwh,
+      yesterday: current.yesterdayProductionKwh,
     }),
-    [today, yesterday],
+    [current.todayProductionKwh, current.yesterdayProductionKwh],
   );
+
+  console.log(current);
 
   return (
     <div>
@@ -64,6 +63,34 @@ export function ChartLineInteractive() {
             </CardTitle>
           </CardHeader>
         </Card>
+
+        <Card className="flex-grow-1">
+          <CardHeader>
+            <CardDescription>Last 15 minutes (avg)</CardDescription>
+            <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
+              {current.statistics.averages.last15Mins} Wh
+            </CardTitle>
+          </CardHeader>
+        </Card>
+
+        <Card className="flex-grow-1">
+          <CardHeader>
+            <CardDescription>Last 1 hour (avg)</CardDescription>
+            <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
+              {current.statistics.averages.last1Hour} Wh
+            </CardTitle>
+          </CardHeader>
+        </Card>
+
+        <Card className="flex-grow-1">
+          <CardHeader>
+            <CardDescription>Last 3 hours (avg)</CardDescription>
+            <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
+              {current.statistics.averages.last3Hours} Wh
+            </CardTitle>
+          </CardHeader>
+        </Card>
+
         <Card className="flex-grow-1">
           <CardHeader>
             <CardDescription>Month</CardDescription>
@@ -122,7 +149,7 @@ export function ChartLineInteractive() {
             >
               <CartesianGrid vertical={false} />
               <XAxis
-                dataKey="jsAt"
+                dataKey="atUtc"
                 tickLine={false}
                 axisLine={false}
                 tickMargin={8}
