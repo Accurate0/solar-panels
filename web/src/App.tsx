@@ -47,8 +47,6 @@ export function ChartLineInteractive() {
     [current.todayProductionKwh, current.yesterdayProductionKwh],
   );
 
-  console.log(current);
-
   return (
     <div>
       <h1 className="scroll-m-20 text-left text-4xl font-bold tracking-tight text-balance">
