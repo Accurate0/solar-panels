@@ -201,8 +201,8 @@ async fn solar_current(
     let yesterday_results = sqlx::query!(
         "SELECT raw_data FROM solar_data_tsdb WHERE (time + '8 hour')::date = (now() + '8 hour')::date - INTEGER '1' ORDER BY time DESC LIMIT 1"
     )
-        .fetch_one(ctx.solar_api.db())
-        .await?;
+    .fetch_one(ctx.solar_api.db())
+    .await?;
 
     let yesterday_value =
         serde_json::from_value::<PlantDetailsByPowerStationIdResponse>(yesterday_results.raw_data)?;
