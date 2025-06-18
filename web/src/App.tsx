@@ -2,7 +2,6 @@ import { useLoaderData } from "react-router";
 import "./App.css";
 import * as React from "react";
 import { CartesianGrid, Line, LineChart, XAxis } from "recharts";
-
 import {
   Card,
   CardContent,
@@ -17,6 +16,7 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import type { loader } from "./loader";
+import type { GenerationHistory } from "./types";
 
 export const description = "An interactive line chart";
 
@@ -38,6 +38,24 @@ export function ChartLineInteractive() {
   const { today, yesterday, current } = useLoaderData<typeof loader>();
   const [activeChart, setActiveChart] =
     React.useState<keyof typeof chartConfig>("today");
+
+  const now = new Date();
+  const endOfDateTime = new Date(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate(),
+    23,
+    55,
+  );
+
+  const extendedToday: GenerationHistory[] = [
+    ...today,
+    {
+      atUtc: endOfDateTime.toISOString(),
+      wh: 0,
+      timestamp: endOfDateTime.getTime(),
+    },
+  ];
 
   const total = React.useMemo(
     () => ({
@@ -139,7 +157,7 @@ export function ChartLineInteractive() {
           >
             <LineChart
               accessibilityLayer
-              data={activeChart === "today" ? today : yesterday}
+              data={activeChart === "today" ? extendedToday : yesterday}
               margin={{
                 left: 12,
                 right: 12,
@@ -147,8 +165,12 @@ export function ChartLineInteractive() {
             >
               <CartesianGrid vertical={false} />
               <XAxis
-                dataKey="atUtc"
+                dataKey="timestamp"
                 tickLine={false}
+                interval={"preserveStartEnd"}
+                type="number"
+                scale="time"
+                domain={["auto", "auto"]}
                 axisLine={false}
                 tickMargin={8}
                 minTickGap={32}
@@ -164,8 +186,10 @@ export function ChartLineInteractive() {
                 content={
                   <ChartTooltipContent
                     className="w-[150px]"
+                    labelKey="timestamp"
                     nameKey="wh"
                     labelFormatter={(value) => {
+                      console.log(value);
                       return new Date(value).toLocaleTimeString("en-US", {
                         hour: "numeric",
                         minute: "numeric",

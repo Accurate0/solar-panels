@@ -32,7 +32,7 @@ pub struct SolarCurrentResponse {
 pub struct GenerationHistory {
     pub wh: f64,
     pub at: NaiveDateTime,
-    pub at_utc: String,
+    pub timestamp: i64,
 }
 
 #[derive(serde::Serialize)]

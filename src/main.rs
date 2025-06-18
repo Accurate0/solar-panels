@@ -5,7 +5,7 @@ use axum::{
     http::{Request, StatusCode},
     routing::get,
 };
-use chrono::{FixedOffset, Utc};
+use chrono::FixedOffset;
 use goodwe::{GoodWeSemsAPI, GoodWeSemsAPIError, types::PlantDetailsByPowerStationIdResponse};
 use reqwest::Method;
 use sqlx::{Connection, postgres::PgPoolOptions, prelude::FromRow};
@@ -234,8 +234,8 @@ async fn solar_history(
     .map(|r| {
         GenerationHistory {
             at: r.bucket_time.unwrap(),
-            at_utc: r.bucket_time.unwrap().and_local_timezone(Utc).unwrap().to_rfc3339(),
-            wh: r.avg.unwrap()
+            wh: r.avg.unwrap(),
+            timestamp: r.bucket_time.unwrap().and_utc().timestamp_millis()
         }
     })
     .partition(|r| {

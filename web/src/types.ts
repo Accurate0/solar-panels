@@ -1,6 +1,7 @@
 export interface GenerationHistory {
   wh: number;
-  at_utc: string;
+  atUtc: string;
+  timestamp: number;
 }
 
 export interface SolarCurrentResponse {
