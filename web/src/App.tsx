@@ -1,7 +1,14 @@
 import { useLoaderData } from "react-router";
 import "./App.css";
 import * as React from "react";
-import { CartesianGrid, Line, LineChart, XAxis } from "recharts";
+import {
+  CartesianGrid,
+  Line,
+  LineChart,
+  XAxis,
+  YAxis,
+  ReferenceLine,
+} from "recharts";
 import {
   Card,
   CardContent,
@@ -150,7 +157,7 @@ export function ChartLineInteractive() {
             })}
           </div>
         </CardHeader>
-        <CardContent className="px-2 sm:p-6">
+        <CardContent className="px-2 sm:p-6" style={{ paddingTop: 0 }}>
           <ChartContainer
             config={chartConfig}
             className="aspect-auto h-[250px] w-full"
@@ -163,7 +170,16 @@ export function ChartLineInteractive() {
                 right: 12,
               }}
             >
-              <CartesianGrid vertical={false} />
+              {[1000, 2000, 3000, 4000, 5000].map((y) => (
+                <ReferenceLine key={y} y={y} stroke="#ccc" strokeWidth={0.5} />
+              ))}
+              <YAxis
+                axisLine={false}
+                tickLine={false}
+                domain={[0, 5500]}
+                ticks={[1000, 2000, 3000, 4000, 5000]}
+                interval={"preserveStartEnd"}
+              />
               <XAxis
                 dataKey="timestamp"
                 tickLine={false}
