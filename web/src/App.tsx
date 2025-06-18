@@ -1,14 +1,7 @@
 import { useLoaderData } from "react-router";
 import "./App.css";
 import * as React from "react";
-import {
-  CartesianGrid,
-  Line,
-  LineChart,
-  XAxis,
-  YAxis,
-  ReferenceLine,
-} from "recharts";
+import { Line, LineChart, XAxis, YAxis, ReferenceLine } from "recharts";
 import {
   Card,
   CardContent,
