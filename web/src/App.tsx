@@ -189,7 +189,6 @@ export function ChartLineInteractive() {
                     labelKey="timestamp"
                     nameKey="wh"
                     labelFormatter={(value) => {
-                      console.log(value);
                       return new Date(value).toLocaleTimeString("en-US", {
                         hour: "numeric",
                         minute: "numeric",
