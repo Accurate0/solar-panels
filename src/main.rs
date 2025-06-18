@@ -114,7 +114,7 @@ async fn solar(ctx: &mut SlashContext<BotContext>) -> DefaultCommandResult {
     let SolarCurrentStatistics { averages } = solar_statistics(&ctx.data.solar_api).await?;
 
     let embed = EmbedBuilder::new()
-        .title("Solar")
+        .title("Solar panels")
         .field(
             EmbedFieldBuilder::new("Current", format!("{} Wh", solar_data.data.kpi.pac)).inline(),
         )
