@@ -226,7 +226,7 @@ async fn solar_history(
         .fixed_offset();
 
     let (today, yesterday): (Vec<_>, Vec<_>) = sqlx::query!(
-        "SELECT avg(current_kwh), time_bucket('5 minutes', time) as bucket_time FROM solar_data_tsdb WHERE (time + '8 hour') > (NOW() + '8 hour') - INTERVAL '48 HOUR' GROUP BY bucket_time ORDER BY bucket_time ASC"
+        "SELECT avg(current_kwh), time_bucket('5 minutes', time) as bucket_time FROM solar_data_tsdb WHERE (time + '8 hour')::date > (NOW()::date - 2) GROUP BY bucket_time ORDER BY bucket_time ASC"
     )
     .fetch_all(ctx.solar_api.db())
     .await?

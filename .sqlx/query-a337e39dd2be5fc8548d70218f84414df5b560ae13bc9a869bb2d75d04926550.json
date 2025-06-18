@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT avg(current_kwh), time_bucket('5 minutes', time) as bucket_time FROM solar_data_tsdb WHERE (time + '8 hour') > (NOW() + '8 hour') - INTERVAL '48 HOUR' GROUP BY bucket_time ORDER BY bucket_time ASC",
+  "query": "SELECT avg(current_kwh), time_bucket('5 minutes', time) as bucket_time FROM solar_data_tsdb WHERE (time + '8 hour')::date > (NOW()::date - 2) GROUP BY bucket_time ORDER BY bucket_time ASC",
   "describe": {
     "columns": [
       {
@@ -22,5 +22,5 @@
       null
     ]
   },
-  "hash": "aefdb24967a5c98710826ea4414780307d5da966cff5a9bb319166507d7198fa"
+  "hash": "a337e39dd2be5fc8548d70218f84414df5b560ae13bc9a869bb2d75d04926550"
 }
