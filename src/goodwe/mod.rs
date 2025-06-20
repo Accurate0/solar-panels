@@ -95,14 +95,6 @@ impl GoodWeSemsAPI {
         let raw_data = serde_json::to_value(&response).unwrap();
 
         sqlx::query!(
-            "INSERT INTO solar_data (current_kwh, raw_data) VALUES ($1, $2)",
-            kwh,
-            raw_data
-        )
-        .execute(&self.db)
-        .await?;
-
-        sqlx::query!(
             "INSERT INTO solar_data_tsdb (current_kwh, raw_data) VALUES ($1, $2)",
             kwh,
             raw_data
