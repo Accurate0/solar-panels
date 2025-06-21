@@ -3,11 +3,11 @@ FROM node:20.11.1-alpine3.19 AS build
 WORKDIR /app
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
-RUN corepack enable
+RUN corepack enable && npm install -g corepack@latest
 
 COPY . /app
 
-RUN pnpm install
+RUN CI=true pnpm install
 
 ENV PATH /app/node_modules/.bin:$PATH
 
