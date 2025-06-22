@@ -30,7 +30,7 @@ impl WeatherAPI {
         }
     }
 
-    #[instrument]
+    #[instrument(skip(self))]
     pub async fn get_weather_details(
         &self,
         geocode: &str,
@@ -49,7 +49,7 @@ impl WeatherAPI {
         Ok(weather_details)
     }
 
-    #[instrument]
+    #[instrument(skip(self))]
     pub async fn get_uv_level(&self, name: &str) -> Result<f64, WeatherAPIError> {
         let uv_levels_xml = self
             .http
