@@ -5,11 +5,12 @@ use axum::{
     http::{Request, StatusCode},
     routing::get,
 };
+use background::BackgroundTask;
 use chrono::FixedOffset;
-use goodwe::{GoodWeSemsAPI, GoodWeSemsAPIError, types::PlantDetailsByPowerStationIdResponse};
+use goodwe::{GoodWeSemsAPI, types::PlantDetailsByPowerStationIdResponse};
 use reqwest::Method;
 use sqlx::{Connection, postgres::PgPoolOptions, prelude::FromRow};
-use std::{future::IntoFuture, ops::Deref, sync::Arc, time::Duration};
+use std::{future::IntoFuture, ops::Deref, sync::Arc};
 use tower::limit::GlobalConcurrencyLimitLayer;
 use tower_http::{
     LatencyUnit,
@@ -39,9 +40,12 @@ use vesper::{
     macros::{command, error_handler},
     prelude::{DefaultCommandResult, Framework, SlashContext},
 };
+use weather::WeatherAPI;
 
+mod background;
 mod goodwe;
 mod types;
+mod weather;
 
 #[derive(Clone)]
 struct BotContext(Arc<BotContextInner>);
@@ -116,19 +120,23 @@ async fn solar(ctx: &mut SlashContext<BotContext>) -> DefaultCommandResult {
     let embed = EmbedBuilder::new()
         .title("Solar panels")
         .field(
-            EmbedFieldBuilder::new("Current", format!("{} Wh", solar_data.data.kpi.pac)).inline(),
+            EmbedFieldBuilder::new(
+                "Current",
+                format!("{} Wh", solar_data.raw_data.data.kpi.pac),
+            )
+            .inline(),
         )
         .field(
             EmbedFieldBuilder::new(
                 "Total for today",
-                format!("{} kWh", solar_data.data.kpi.power),
+                format!("{} kWh", solar_data.raw_data.data.kpi.power),
             )
             .inline(),
         )
         .field(
             EmbedFieldBuilder::new(
                 "All time total",
-                format!("{} kWh", solar_data.data.kpi.total_power),
+                format!("{} kWh", solar_data.raw_data.data.kpi.total_power),
             )
             .inline(),
         )
@@ -198,6 +206,7 @@ async fn solar_current(
     State(ctx): State<BotContext>,
 ) -> Result<Json<SolarCurrentResponse>, AppError> {
     let resp = ctx.solar_api.get_latest_saved_solar_data().await?;
+    let raw_data = resp.raw_data;
     let yesterday_results = sqlx::query!(
         "SELECT raw_data FROM solar_data_tsdb WHERE (time + '8 hour')::date = (now() + '8 hour')::date - INTEGER '1' ORDER BY time DESC LIMIT 1"
     )
@@ -209,10 +218,12 @@ async fn solar_current(
 
     Ok(Json(SolarCurrentResponse {
         yesterday_production_kwh: yesterday_value.data.kpi.power,
-        month_production_kwh: resp.data.kpi.month_generation,
-        current_production_wh: resp.data.kpi.pac,
-        today_production_kwh: resp.data.kpi.power,
-        all_time_production_kwh: resp.data.kpi.total_power,
+        month_production_kwh: raw_data.data.kpi.month_generation,
+        current_production_wh: raw_data.data.kpi.pac,
+        today_production_kwh: raw_data.data.kpi.power,
+        all_time_production_kwh: raw_data.data.kpi.total_power,
+        uv_level: resp.uv_level,
+        temperature: resp.temperature,
         statistics: solar_statistics(&ctx.solar_api).await?,
     }))
 }
@@ -226,15 +237,17 @@ async fn solar_history(
         .fixed_offset();
 
     let (today, yesterday): (Vec<_>, Vec<_>) = sqlx::query!(
-        "SELECT avg(current_kwh), time_bucket('5 minutes', time) as bucket_time FROM solar_data_tsdb WHERE (time + '8 hour')::date > ((NOW() + '8 hour')::date - 2) GROUP BY bucket_time ORDER BY bucket_time ASC"
+        "SELECT avg(current_kwh) as avg_wh, avg(uv_level) as avg_uv_level, avg(temperature) as avg_temp, time_bucket('5 minutes', time) as bucket_time FROM solar_data_tsdb WHERE (time + '8 hour')::date > ((NOW() + '8 hour')::date - 2) GROUP BY bucket_time ORDER BY bucket_time ASC"
     )
     .fetch_all(ctx.solar_api.db())
     .await?
     .into_iter()
     .map(|r| {
         GenerationHistory {
+            uv_level: r.avg_uv_level,
+            temperature: r.avg_temp,
             at: r.bucket_time.unwrap(),
-            wh: r.avg.unwrap(),
+            wh: r.avg_wh.unwrap(),
             timestamp: r.bucket_time.unwrap().and_utc().timestamp_millis()
         }
     })
@@ -285,11 +298,13 @@ async fn main() -> anyhow::Result<()> {
     sqlx::migrate!("./migrations").run(&pool).await?;
 
     let solar_api = GoodWeSemsAPI::new(
-        pool,
+        pool.clone(),
         goodwe_username,
         goodwe_password,
         goodwe_powerstation_id,
     );
+
+    let weather_api = WeatherAPI::new();
 
     let context = BotContext(
         BotContextInner {
@@ -298,12 +313,17 @@ async fn main() -> anyhow::Result<()> {
         .into(),
     );
 
+    let bg_task = BackgroundTask::new(pool, solar_api, weather_api);
+    if cfg!(debug_assertions) {
+        tracing::info!("skipping background thread in debug");
+    } else {
+        tracing::info!("spawning background thread");
+        bg_task.start();
+    }
+
     let config = ConfigBuilder::new(token.clone(), Intents::GUILD_MESSAGES).build();
-
     let mut shard = Shard::with_config(ShardId::ONE, config);
-
     let http = Arc::new(HttpClient::new(token));
-
     let cache = InMemoryCacheBuilder::<DefaultCacheModels>::new()
         .resource_types(ResourceType::MESSAGE | ResourceType::GUILD)
         .build();
@@ -383,28 +403,6 @@ async fn main() -> anyhow::Result<()> {
     interaction_client
         .set_global_commands(&updated_commands)
         .await?;
-
-    if cfg!(debug_assertions) {
-        tracing::info!("skipping background thread in debug");
-    } else {
-        tracing::info!("spawning background thread");
-        tokio::spawn(async move {
-            loop {
-                let solar_api = solar_api.clone();
-                let fut = async move {
-                    let login_data = solar_api.get_new_or_cached_login_data().await?;
-                    solar_api.save_solar_data(login_data).await?;
-                    Ok::<(), GoodWeSemsAPIError>(())
-                };
-
-                if let Err(e) = fut.await {
-                    tracing::error!("error fetching data: {e}");
-                }
-
-                tokio::time::sleep(Duration::from_secs(60)).await
-            }
-        });
-    }
 
     tracing::info!("starting event loop");
     while let Some(event) = shard.next_event(EventTypeFlags::all()).await {

@@ -1,0 +1,32 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT raw_data, temperature, uv_level FROM solar_data_tsdb ORDER BY time DESC LIMIT 1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "raw_data",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 1,
+        "name": "temperature",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 2,
+        "name": "uv_level",
+        "type_info": "Float8"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "4912959cb63c72e3244120ca6ed7c423daab0d67683957b704f15583777cdd9a"
+}

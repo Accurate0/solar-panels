@@ -25,6 +25,8 @@ pub struct SolarCurrentResponse {
     pub month_production_kwh: f64,
     pub all_time_production_kwh: f64,
     pub statistics: SolarCurrentStatistics,
+    pub uv_level: Option<f64>,
+    pub temperature: Option<f64>,
 }
 
 #[derive(serde::Serialize)]
@@ -32,6 +34,8 @@ pub struct SolarCurrentResponse {
 pub struct GenerationHistory {
     pub wh: f64,
     pub at: NaiveDateTime,
+    pub uv_level: Option<f64>,
+    pub temperature: Option<f64>,
     pub timestamp: i64,
 }
 

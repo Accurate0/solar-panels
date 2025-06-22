@@ -7,11 +7,14 @@ use reqwest::{
     header::{ACCEPT, CONTENT_TYPE},
 };
 use sqlx::PgPool;
-use types::{LoginData, LoginRequest, LoginResponse, PlantDetailsByPowerStationIdResponse};
+use tracing::instrument;
+use types::{
+    LoginData, LoginRequest, LoginResponse, PlantDetailsByPowerStationIdResponse, SavedSolarData,
+};
 
 pub mod types;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct GoodWeSemsAPI {
     db: PgPool,
     username: String,
@@ -54,18 +57,22 @@ impl GoodWeSemsAPI {
         }
     }
 
-    pub async fn get_latest_saved_solar_data(
-        &self,
-    ) -> Result<PlantDetailsByPowerStationIdResponse, GoodWeSemsAPIError> {
-        let solar_data =
-            sqlx::query!("SELECT raw_data FROM solar_data_tsdb ORDER BY time DESC LIMIT 1")
-                .fetch_one(&self.db)
-                .await?;
+    pub async fn get_latest_saved_solar_data(&self) -> Result<SavedSolarData, GoodWeSemsAPIError> {
+        let solar_data = sqlx::query!(
+            "SELECT raw_data, temperature, uv_level FROM solar_data_tsdb ORDER BY time DESC LIMIT 1"
+        )
+        .fetch_one(&self.db)
+        .await?;
 
-        Ok(serde_json::from_value(solar_data.raw_data).unwrap())
+        Ok(SavedSolarData {
+            raw_data: serde_json::from_value(solar_data.raw_data).unwrap(),
+            temperature: solar_data.temperature,
+            uv_level: solar_data.uv_level,
+        })
     }
 
-    pub async fn save_solar_data(
+    #[instrument(skip(self))]
+    pub async fn get_solar_data(
         &self,
         login: LoginData,
     ) -> Result<PlantDetailsByPowerStationIdResponse, GoodWeSemsAPIError> {
@@ -91,20 +98,10 @@ impl GoodWeSemsAPI {
             .json::<PlantDetailsByPowerStationIdResponse>()
             .await?;
 
-        let kwh = response.data.kpi.pac;
-        let raw_data = serde_json::to_value(&response).unwrap();
-
-        sqlx::query!(
-            "INSERT INTO solar_data_tsdb (current_kwh, raw_data) VALUES ($1, $2)",
-            kwh,
-            raw_data
-        )
-        .execute(&self.db)
-        .await?;
-
         Ok(response)
     }
 
+    #[instrument(skip(self))]
     pub async fn get_new_or_cached_login_data(&self) -> Result<LoginData, GoodWeSemsAPIError> {
         let latest_login_data =
             sqlx::query!("SELECT * FROM cached_token ORDER BY created_at DESC LIMIT 1")
@@ -116,6 +113,7 @@ impl GoodWeSemsAPI {
             if (now - latest_login.created_at).num_minutes() > 5 {
                 self.login_and_save().await
             } else {
+                tracing::info!("fetched existing login data");
                 Ok(serde_json::from_value::<LoginData>(latest_login.login_data).unwrap())
             }
         } else {
@@ -132,6 +130,8 @@ impl GoodWeSemsAPI {
         )
         .execute(&self.db)
         .await?;
+
+        tracing::info!("saved login info");
 
         Ok(response.data)
     }
@@ -161,7 +161,6 @@ impl GoodWeSemsAPI {
             .json::<LoginResponse>()
             .await?;
 
-        tracing::info!("{:?}", response);
         Ok(response)
     }
 }
