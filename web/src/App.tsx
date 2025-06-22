@@ -200,7 +200,6 @@ export function ChartLineInteractive() {
                   <ChartTooltipContent
                     className="w-[150px]"
                     labelKey="timestamp"
-                    nameKey="wh"
                     labelFormatter={(value) => {
                       return new Date(value).toLocaleTimeString("en-US", {
                         hour: "numeric",
@@ -213,6 +212,7 @@ export function ChartLineInteractive() {
 
               <Line
                 dataKey="uvLevel"
+                name="UV Level"
                 type="monotone"
                 strokeDasharray="5 5"
                 stroke={uvLevelColour}
@@ -221,6 +221,7 @@ export function ChartLineInteractive() {
               />
               <Line
                 dataKey="wh"
+                name="Wh"
                 type="monotone"
                 stroke={`var(--color-${activeChart})`}
                 strokeWidth={2}
@@ -230,6 +231,9 @@ export function ChartLineInteractive() {
           </ChartContainer>
         </CardContent>
       </Card>
+      <p className="text-muted-foreground text-xs text-left pt-3">
+        UV observations courtesy of ARPANSA
+      </p>
     </div>
   );
 }
