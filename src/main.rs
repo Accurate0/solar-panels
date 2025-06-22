@@ -128,6 +128,16 @@ async fn solar(ctx: &mut SlashContext<BotContext>) -> DefaultCommandResult {
         )
         .field(
             EmbedFieldBuilder::new(
+                "UV Level",
+                solar_data
+                    .uv_level
+                    .map(|uv| uv.to_string())
+                    .unwrap_or("unknown".to_string()),
+            )
+            .inline(),
+        )
+        .field(
+            EmbedFieldBuilder::new(
                 "Total for today",
                 format!("{} kWh", solar_data.raw_data.data.kpi.power),
             )
@@ -135,19 +145,42 @@ async fn solar(ctx: &mut SlashContext<BotContext>) -> DefaultCommandResult {
         )
         .field(
             EmbedFieldBuilder::new(
-                "All time total",
-                format!("{} kWh", solar_data.raw_data.data.kpi.total_power),
+                "15 min avg",
+                format!(
+                    "{} Wh",
+                    averages
+                        .last_15_mins
+                        .map(|r| r.to_string())
+                        .unwrap_or("unknown".to_string())
+                ),
             )
             .inline(),
         )
         .field(
-            EmbedFieldBuilder::new("15 min avg", format!("{} Wh", averages.last_15_mins)).inline(),
+            EmbedFieldBuilder::new(
+                "1 hour avg",
+                format!(
+                    "{} Wh",
+                    averages
+                        .last_1_hour
+                        .map(|r| r.to_string())
+                        .unwrap_or("unknown".to_string())
+                ),
+            )
+            .inline(),
         )
         .field(
-            EmbedFieldBuilder::new("1 hour avg", format!("{} Wh", averages.last_1_hour)).inline(),
-        )
-        .field(
-            EmbedFieldBuilder::new("3 hour avg", format!("{} Wh", averages.last_3_hours)).inline(),
+            EmbedFieldBuilder::new(
+                "3 hour avg",
+                format!(
+                    "{} Wh",
+                    averages
+                        .last_3_hours
+                        .map(|r| r.to_string())
+                        .unwrap_or("unknown".to_string())
+                ),
+            )
+            .inline(),
         )
         .color(0x40944c)
         .validate()?
@@ -174,13 +207,19 @@ pub async fn get_average_for_last_n_minutes(
         avg: Option<f64>,
     }
 
-    let avg_15_mins: Row = sqlx::query_as(&query).fetch_one(solar_api.db()).await?;
+    let avg_15_mins: Option<Row> = sqlx::query_as(&query)
+        .fetch_optional(solar_api.db())
+        .await?;
 
-    Ok(avg_15_mins.avg)
+    Ok(avg_15_mins.and_then(|r| r.avg))
 }
 
-fn round(n: f64) -> f64 {
-    (n * 100.0).round() / 100.0
+fn round(n: Option<f64>) -> Option<f64> {
+    if n.is_none() {
+        n
+    } else {
+        Some((n.unwrap() * 100.0).round() / 100.0)
+    }
 }
 
 pub async fn solar_statistics(
@@ -195,9 +234,9 @@ pub async fn solar_statistics(
 
     Ok(SolarCurrentStatistics {
         averages: SolarCurrentStatisticsAverages {
-            last_15_mins: round(avg_15_mins.unwrap()),
-            last_1_hour: round(avg_1_hour.unwrap()),
-            last_3_hours: round(avg_3_hours.unwrap()),
+            last_15_mins: round(avg_15_mins),
+            last_1_hour: round(avg_1_hour),
+            last_3_hours: round(avg_3_hours),
         },
     })
 }

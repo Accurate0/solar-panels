@@ -5,9 +5,9 @@ use reqwest::StatusCode;
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SolarCurrentStatisticsAverages {
-    pub last_15_mins: f64,
-    pub last_1_hour: f64,
-    pub last_3_hours: f64,
+    pub last_15_mins: Option<f64>,
+    pub last_1_hour: Option<f64>,
+    pub last_3_hours: Option<f64>,
 }
 
 #[derive(serde::Serialize)]
