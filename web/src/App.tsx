@@ -27,7 +27,7 @@ const chartConfig = {
   },
   today: {
     label: "Today",
-    color: "#F9A825",
+    color: "var(--chart-1)",
   },
   yesterday: {
     label: "Yesterday",
@@ -214,7 +214,7 @@ export function ChartLineInteractive() {
                 dataKey="uvLevel"
                 name="UV Level"
                 type="monotone"
-                strokeDasharray="5 5"
+                strokeDasharray="3 3"
                 stroke={uvLevelColour}
                 dot={false}
                 yAxisId={"uvLevelAxis"}
