@@ -215,11 +215,7 @@ pub async fn get_average_for_last_n_minutes(
 }
 
 fn round(n: Option<f64>) -> Option<f64> {
-    if n.is_none() {
-        n
-    } else {
-        Some((n.unwrap() * 100.0).round() / 100.0)
-    }
+    n.map(|n| (n * 100.0).round() / 100.0)
 }
 
 pub async fn solar_statistics(

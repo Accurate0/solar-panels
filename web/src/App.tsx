@@ -20,17 +20,18 @@ import type { GenerationHistory } from "./types";
 
 export const description = "An interactive line chart";
 
+const uvLevelColour = "#43A047";
 const chartConfig = {
   views: {
     label: "Solar generation",
   },
   today: {
     label: "Today",
-    color: "var(--chart-1)",
+    color: "#F9A825",
   },
   yesterday: {
     label: "Yesterday",
-    color: "var(--chart-2)",
+    color: "#1976D2",
   },
 } satisfies ChartConfig;
 
@@ -51,6 +52,8 @@ export function ChartLineInteractive() {
   const extendedToday: GenerationHistory[] = [
     ...today,
     {
+      uvLevel: 0,
+      temperature: null,
       atUtc: endOfDateTime.toISOString(),
       wh: 0,
       timestamp: endOfDateTime.getTime(),
@@ -173,6 +176,7 @@ export function ChartLineInteractive() {
                 ticks={[1000, 2000, 3000, 4000, 5000]}
                 interval={"preserveStartEnd"}
               />
+              <YAxis hide={true} yAxisId="uvLevelAxis" domain={[0, 13]} />
               <XAxis
                 dataKey="timestamp"
                 tickLine={false}
@@ -205,6 +209,15 @@ export function ChartLineInteractive() {
                     }}
                   />
                 }
+              />
+
+              <Line
+                dataKey="uvLevel"
+                type="monotone"
+                strokeDasharray="5 5"
+                stroke={uvLevelColour}
+                dot={false}
+                yAxisId={"uvLevelAxis"}
               />
               <Line
                 dataKey="wh"

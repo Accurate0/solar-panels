@@ -1,5 +1,7 @@
 export interface GenerationHistory {
   wh: number;
+  uvLevel: number | null;
+  temperature: number | null;
   atUtc: string;
   timestamp: number;
 }
