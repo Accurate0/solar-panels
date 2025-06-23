@@ -25,13 +25,13 @@ pub struct Location {
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WeatherDetails {
-    pub metadata: Metadata,
-    pub data: Data,
+    pub metadata: WeatherMetadata,
+    pub data: WeatherData,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Metadata {
+pub struct WeatherMetadata {
     #[serde(rename = "response_timestamp")]
     pub response_timestamp: String,
     #[serde(rename = "issue_time")]
@@ -43,7 +43,7 @@ pub struct Metadata {
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Data {
+pub struct WeatherData {
     pub temp: f64,
     #[serde(rename = "temp_feels_like")]
     pub temp_feels_like: f64,

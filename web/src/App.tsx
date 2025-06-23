@@ -39,6 +39,15 @@ export function ChartLineInteractive() {
   const [activeChart, setActiveChart] =
     React.useState<keyof typeof chartConfig>("today");
 
+  const now = new Date();
+  const endOfDay = new Date(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate(),
+    23,
+    55,
+  );
+
   const total = React.useMemo(
     () => ({
       today: current.todayProductionKwh,
@@ -164,10 +173,13 @@ export function ChartLineInteractive() {
               <XAxis
                 dataKey="timestamp"
                 tickLine={false}
-                interval={"preserveStartEnd"}
+                interval={"preserveStart"}
                 type="number"
                 scale="time"
-                domain={["auto", "auto"]}
+                domain={[
+                  "dataMin",
+                  activeChart === "today" ? endOfDay.getTime() : "auto",
+                ]}
                 axisLine={false}
                 tickMargin={8}
                 minTickGap={32}
