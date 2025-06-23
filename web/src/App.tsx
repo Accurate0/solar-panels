@@ -16,7 +16,6 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import type { loader } from "./loader";
-import type { GenerationHistory } from "./types";
 
 export const description = "An interactive line chart";
 
@@ -53,59 +52,64 @@ export function ChartLineInteractive() {
       <h1 className="scroll-m-20 text-left text-4xl font-bold tracking-tight text-balance">
         Solar panels
       </h1>
-      <div className="flex md:flex-row flex-1 gap-4 py-4 w-full flex-col">
-        <Card className="flex-grow-1">
-          <CardHeader>
-            <CardDescription>Current</CardDescription>
-            <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-              {current.currentProductionWh} Wh
-            </CardTitle>
-          </CardHeader>
-        </Card>
+      <div className="grid grid-rows-2 gap-4 py-4">
+        <div className="grid grid-cols-3 gap-4">
+          <Card>
+            <CardHeader>
+              <CardDescription>Current</CardDescription>
+              <CardTitle className="xs: text-sm md:text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
+                {current.currentProductionWh} Wh
+              </CardTitle>
+            </CardHeader>
+          </Card>
 
-        <Card className="flex-grow-1">
-          <CardHeader>
-            <CardDescription>15 minutes (avg)</CardDescription>
-            <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-              {current.statistics.averages.last15Mins} Wh
-            </CardTitle>
-          </CardHeader>
-        </Card>
+          <Card>
+            <CardHeader>
+              <CardDescription>Month</CardDescription>
+              <CardTitle className="xs: text-sm md:text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
+                {current.monthProductionKwh} kWh
+              </CardTitle>
+            </CardHeader>
+          </Card>
 
-        <Card className="flex-grow-1">
-          <CardHeader>
-            <CardDescription>1 hour (avg)</CardDescription>
-            <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-              {current.statistics.averages.last1Hour} Wh
-            </CardTitle>
-          </CardHeader>
-        </Card>
+          <Card>
+            <CardHeader>
+              <CardDescription>All Time</CardDescription>
+              <CardTitle className="xs:text-sm md:text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
+                {current.allTimeProductionKwh} kWh
+              </CardTitle>
+            </CardHeader>
+          </Card>
+        </div>
 
-        <Card className="flex-grow-1">
-          <CardHeader>
-            <CardDescription>3 hours (avg)</CardDescription>
-            <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-              {current.statistics.averages.last3Hours} Wh
-            </CardTitle>
-          </CardHeader>
-        </Card>
+        <div className="grid grid-cols-3 gap-4">
+          <Card>
+            <CardHeader>
+              <CardDescription>15m (avg)</CardDescription>
+              <CardTitle className="xs:text-sm md:text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
+                {current.statistics.averages.last15Mins.toFixed(0)} Wh
+              </CardTitle>
+            </CardHeader>
+          </Card>
 
-        <Card className="flex-grow-1">
-          <CardHeader>
-            <CardDescription>Month</CardDescription>
-            <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-              {current.monthProductionKwh} kWh
-            </CardTitle>
-          </CardHeader>
-        </Card>
-        <Card className="flex-grow-1">
-          <CardHeader>
-            <CardDescription>All Time</CardDescription>
-            <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-              {current.allTimeProductionKwh} kWh
-            </CardTitle>
-          </CardHeader>
-        </Card>
+          <Card>
+            <CardHeader>
+              <CardDescription>1h (avg)</CardDescription>
+              <CardTitle className="xs:text-sm md:text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
+                {current.statistics.averages.last1Hour.toFixed(0)} Wh
+              </CardTitle>
+            </CardHeader>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardDescription>3h (avg)</CardDescription>
+              <CardTitle className="xs:text-sm md:text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
+                {current.statistics.averages.last3Hours.toFixed(0)} Wh
+              </CardTitle>
+            </CardHeader>
+          </Card>
+        </div>
       </div>
       <Card className="py-4 sm:py-0">
         <CardHeader className="flex flex-col items-stretch border-b !p-0 sm:flex-row">
