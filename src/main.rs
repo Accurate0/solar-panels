@@ -11,6 +11,7 @@ use goodwe::{GoodWeSemsAPI, types::PlantDetailsByPowerStationIdResponse};
 use reqwest::Method;
 use sqlx::{Connection, postgres::PgPoolOptions, prelude::FromRow};
 use std::{future::IntoFuture, ops::Deref, sync::Arc};
+use tokio::task::JoinHandle;
 use tower::limit::GlobalConcurrencyLimitLayer;
 use tower_http::{
     LatencyUnit,
@@ -60,6 +61,7 @@ impl Deref for BotContext {
 
 struct BotContextInner {
     solar_api: GoodWeSemsAPI,
+    background_task_handle: Option<JoinHandle<()>>,
 }
 
 async fn handle_event(event: Event, _http: Arc<HttpClient>) -> anyhow::Result<()> {
@@ -305,10 +307,17 @@ async fn health(ctx: State<BotContext>) -> StatusCode {
         return StatusCode::SERVICE_UNAVAILABLE;
     }
 
-    let resp = resp.unwrap().ping().await;
-    match resp {
-        Ok(_) => StatusCode::NO_CONTENT,
-        Err(_) => StatusCode::SERVICE_UNAVAILABLE,
+    let is_db_ok = resp.unwrap().ping().await.is_ok();
+    let is_background_task_ok = ctx
+        .background_task_handle
+        .as_ref()
+        .map(|jh| !jh.is_finished())
+        .unwrap_or(true);
+
+    if is_db_ok && is_background_task_ok {
+        StatusCode::NO_CONTENT
+    } else {
+        StatusCode::SERVICE_UNAVAILABLE
     }
 }
 
@@ -341,20 +350,22 @@ async fn main() -> anyhow::Result<()> {
 
     let weather_api = WeatherAPI::new();
 
+    let bg_task = BackgroundTask::new(pool, solar_api.clone(), weather_api);
+    let join_handle = if cfg!(debug_assertions) {
+        tracing::info!("skipping background thread in debug");
+        None
+    } else {
+        tracing::info!("spawning background thread");
+        Some(bg_task.start())
+    };
+
     let context = BotContext(
         BotContextInner {
-            solar_api: solar_api.clone(),
+            solar_api,
+            background_task_handle: join_handle,
         }
         .into(),
     );
-
-    let bg_task = BackgroundTask::new(pool, solar_api, weather_api);
-    if cfg!(debug_assertions) {
-        tracing::info!("skipping background thread in debug");
-    } else {
-        tracing::info!("spawning background thread");
-        bg_task.start();
-    }
 
     let config = ConfigBuilder::new(token.clone(), Intents::GUILD_MESSAGES).build();
     let mut shard = Shard::with_config(ShardId::ONE, config);
