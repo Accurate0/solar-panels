@@ -40,26 +40,6 @@ export function ChartLineInteractive() {
   const [activeChart, setActiveChart] =
     React.useState<keyof typeof chartConfig>("today");
 
-  const now = new Date();
-  const endOfDateTime = new Date(
-    now.getUTCFullYear(),
-    now.getUTCMonth(),
-    now.getUTCDate(),
-    23,
-    55,
-  );
-
-  const extendedToday: GenerationHistory[] = [
-    ...today,
-    {
-      uvLevel: 0,
-      temperature: null,
-      atUtc: endOfDateTime.toISOString(),
-      wh: 0,
-      timestamp: endOfDateTime.getTime(),
-    },
-  ];
-
   const total = React.useMemo(
     () => ({
       today: current.todayProductionKwh,
@@ -160,7 +140,7 @@ export function ChartLineInteractive() {
           >
             <LineChart
               accessibilityLayer
-              data={activeChart === "today" ? extendedToday : yesterday}
+              data={activeChart === "today" ? today : yesterday}
               margin={{
                 left: 12,
                 right: 12,
