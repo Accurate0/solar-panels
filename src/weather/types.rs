@@ -56,7 +56,7 @@ pub struct WeatherData {
     #[serde(rename = "min_temp")]
     pub min_temp: MinTemp,
     #[serde(rename = "rain_since_9am")]
-    pub rain_since_9am: i64,
+    pub rain_since_9am: f64,
     pub humidity: i64,
     pub station: Station,
 }
@@ -101,7 +101,7 @@ pub struct MaxTemp {
 #[serde(rename_all = "camelCase")]
 pub struct MinTemp {
     pub time: String,
-    pub value: i64,
+    pub value: f64,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
