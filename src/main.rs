@@ -1,14 +1,15 @@
 use axum::{
     Json,
     body::Body,
-    extract::State,
+    extract::{Query, State},
     http::{Request, StatusCode},
     routing::get,
 };
 use background::BackgroundTask;
-use chrono::FixedOffset;
+use chrono::{FixedOffset, NaiveDateTime};
 use goodwe::{GoodWeSemsAPI, types::PlantDetailsByPowerStationIdResponse};
 use reqwest::Method;
+use serde::Deserialize;
 use sqlx::{Connection, postgres::PgPoolOptions, prelude::FromRow};
 use std::{future::IntoFuture, ops::Deref, sync::Arc};
 use tokio::task::JoinHandle;
@@ -34,7 +35,7 @@ use twilight_util::builder::{
 };
 use types::{
     AppError, GenerationHistory, SolarCurrentResponse, SolarCurrentStatistics,
-    SolarCurrentStatisticsAverages, SolarHistoryResponse,
+    SolarCurrentStatisticsAverages, SolarHistoryResponse, SolarHistoryV2Response,
 };
 use vesper::{
     framework::DefaultError,
@@ -265,6 +266,34 @@ async fn solar_current(
     }))
 }
 
+#[derive(Deserialize)]
+struct SolarHistoryQueryParams {
+    since: NaiveDateTime,
+}
+
+async fn solar_history_with_query(
+    State(ctx): State<BotContext>,
+    params: Query<SolarHistoryQueryParams>,
+) -> Result<Json<SolarHistoryV2Response>, AppError> {
+    let history: Vec<_> = sqlx::query!(
+        "SELECT avg(current_kwh) as avg_wh, avg(uv_level) as avg_uv_level, avg(temperature) as avg_temp, time_bucket('5 minutes', time) as bucket_time FROM solar_data_tsdb WHERE time >= $1 GROUP BY bucket_time ORDER BY bucket_time ASC", params.since
+    )
+    .fetch_all(ctx.solar_api.db())
+    .await?
+    .into_iter()
+    .map(|r| {
+        GenerationHistory {
+            uv_level: r.avg_uv_level,
+            temperature: r.avg_temp,
+            at: r.bucket_time.unwrap(),
+            wh: r.avg_wh.unwrap(),
+            timestamp: r.bucket_time.unwrap().and_utc().timestamp_millis()
+        }
+    }).collect();
+
+    Ok(Json(SolarHistoryV2Response { history }))
+}
+
 // We're gonna need this soon: https://docs.timescale.com/use-timescale/latest/query-data/advanced-analytic-queries/
 async fn solar_history(
     State(ctx): State<BotContext>,
@@ -377,7 +406,8 @@ async fn main() -> anyhow::Result<()> {
     let routes = axum::Router::new()
         .route("/health", get(health))
         .route("/current", get(solar_current))
-        .route("/history", get(solar_history));
+        .route("/history", get(solar_history))
+        .route("/v2/history", get(solar_history_with_query));
 
     let app = axum::Router::new()
         .nest("/api", routes)

@@ -46,6 +46,12 @@ pub struct SolarHistoryResponse {
     pub yesterday: Vec<GenerationHistory>,
 }
 
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SolarHistoryV2Response {
+    pub history: Vec<GenerationHistory>,
+}
+
 pub enum AppError {
     Error(anyhow::Error),
 }
