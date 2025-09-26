@@ -9,7 +9,7 @@
     "lint": "eslint .",
     "preview": "vite preview"
   },
-  "packageManager": "pnpm@10.17.0",
+  "packageManager": "pnpm@10.17.1",
   "dependencies": {
     "@radix-ui/react-slot": "^1.2.3",
     "@tabler/icons-react": "^3.34.0",
