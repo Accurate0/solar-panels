@@ -7,3 +7,6 @@ resources:
   - database.yaml
   - ingress.yaml
   - service.yaml
+  - gateway.yaml
+  - client.policy.yaml
+  - httproute.yaml
