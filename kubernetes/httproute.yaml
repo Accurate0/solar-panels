@@ -7,7 +7,8 @@ spec:
   hostnames:
     - solar-panels.anurag.sh
   parentRefs:
-    - name: solar-panels-gateway
+    - name: shared-gateway
+      namespace: envoy-gateway-system
   rules:
     - backendRefs:
         - name: solar-panel-web
