@@ -159,14 +159,14 @@ export function ChartLineInteractive() {
                 right: 12,
               }}
             >
-              {[1000, 2000, 3000, 4000, 5000].map((y) => (
+              {[1000, 2000, 3000, 4000, 5000, 6000].map((y) => (
                 <ReferenceLine key={y} y={y} stroke="#ccc" strokeWidth={0.5} />
               ))}
               <YAxis
                 axisLine={false}
                 tickLine={false}
-                domain={[0, 5500]}
-                ticks={[1000, 2000, 3000, 4000, 5000]}
+                domain={[0, 6500]}
+                ticks={[1000, 2000, 3000, 4000, 5000, 6000]}
                 interval={"preserveStartEnd"}
               />
               <YAxis hide={true} yAxisId="uvLevelAxis" domain={[0, 13]} />
