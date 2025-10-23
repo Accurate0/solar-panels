@@ -16,7 +16,7 @@ spec:
         valuesObject:
           routes:
             - name: solar-panels-route
-              useBouncer: true
+              crowdsecBouncer: true
               gateway:
                 name: shared-gateway
                 namespace: envoy-gateway-system
