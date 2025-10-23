@@ -38,6 +38,7 @@ spec:
                         type: PathPrefix
                         value: /api
     - repoURL: https://github.com/Accurate0/solar-panels.git
+      name: application
       path: kubernetes
       kustomize:
         images:
