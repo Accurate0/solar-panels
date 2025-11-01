@@ -198,7 +198,7 @@ async fn solar(ctx: &mut SlashContext<BotContext>) -> DefaultCommandResult {
 }
 
 pub async fn get_average_for_last_n_minutes(
-    s: &'static str,
+    s: i64,
     solar_api: &GoodWeSemsAPI,
 ) -> Result<Option<f64>, anyhow::Error> {
     let query = format!(
@@ -225,9 +225,9 @@ fn round(n: Option<f64>) -> Option<f64> {
 pub async fn solar_statistics(
     solar_api: &GoodWeSemsAPI,
 ) -> Result<SolarCurrentStatistics, anyhow::Error> {
-    let avg_15_mins = get_average_for_last_n_minutes("15", solar_api);
-    let avg_1_hour = get_average_for_last_n_minutes("60", solar_api);
-    let avg_3_hours = get_average_for_last_n_minutes("180", solar_api);
+    let avg_15_mins = get_average_for_last_n_minutes(15, solar_api);
+    let avg_1_hour = get_average_for_last_n_minutes(60, solar_api);
+    let avg_3_hours = get_average_for_last_n_minutes(180, solar_api);
 
     let (avg_15_mins, avg_1_hour, avg_3_hours) =
         futures::try_join!(avg_15_mins, avg_1_hour, avg_3_hours)?;
