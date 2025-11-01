@@ -202,7 +202,7 @@ pub async fn get_average_for_last_n_minutes(
     solar_api: &GoodWeSemsAPI,
 ) -> Result<Option<f64>, anyhow::Error> {
     let query = format!(
-        "SELECT avg(current_kwh), time_bucket('{s} minutes', time) as time_bucket FROM solar_data_tsdb WHERE (time + '8 hour') > (NOW() + '8 hour') - INTERVAL '{s} MINUTE' GROUP BY time_bucket",
+        "SELECT avg(current_kwh) FROM solar_data_tsdb WHERE (time + '8 hour') > ((NOW() + '8 hour') - MAKE_INTERVAL(mins => $1))",
     );
 
     #[derive(FromRow)]
@@ -210,11 +210,12 @@ pub async fn get_average_for_last_n_minutes(
         avg: Option<f64>,
     }
 
-    let avg_15_mins: Option<Row> = sqlx::query_as(&query)
+    let avg_row: Option<Row> = sqlx::query_as(&query)
+        .bind(s)
         .fetch_optional(solar_api.db())
         .await?;
 
-    Ok(avg_15_mins.and_then(|r| r.avg))
+    Ok(avg_row.and_then(|r| r.avg))
 }
 
 fn round(n: Option<f64>) -> Option<f64> {
