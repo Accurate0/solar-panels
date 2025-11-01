@@ -198,7 +198,7 @@ async fn solar(ctx: &mut SlashContext<BotContext>) -> DefaultCommandResult {
 }
 
 pub async fn get_average_for_last_n_minutes(
-    s: i64,
+    s: i32,
     solar_api: &GoodWeSemsAPI,
 ) -> Result<Option<f64>, anyhow::Error> {
     let query = format!(
