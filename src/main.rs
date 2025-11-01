@@ -201,16 +201,14 @@ pub async fn get_average_for_last_n_minutes(
     s: i32,
     solar_api: &GoodWeSemsAPI,
 ) -> Result<Option<f64>, anyhow::Error> {
-    let query = format!(
-        "SELECT avg(current_kwh) FROM solar_data_tsdb WHERE (time + '8 hour') > ((NOW() + '8 hour') - MAKE_INTERVAL(mins => $1))",
-    );
-
     #[derive(FromRow)]
     struct Row {
         avg: Option<f64>,
     }
 
-    let avg_row: Option<Row> = sqlx::query_as(&query)
+    let avg_row: Option<Row> = sqlx::query_as(r#"SELECT avg(current_kwh)
+                                                 FROM solar_data_tsdb
+                                                 WHERE (time + '8 hour') > ((NOW() + '8 hour') - MAKE_INTERVAL(mins => $1))"#)
         .bind(s)
         .fetch_optional(solar_api.db())
         .await?;
