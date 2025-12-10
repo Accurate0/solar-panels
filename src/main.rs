@@ -377,7 +377,7 @@ async fn main() -> anyhow::Result<()> {
     let weather_api = WeatherAPI::new();
 
     let bg_task = BackgroundTask::new(pool, solar_api.clone(), weather_api);
-    let join_handle = if !cfg!(debug_assertions) {
+    let join_handle = if cfg!(debug_assertions) {
         tracing::info!("skipping background thread in debug");
         None
     } else {
