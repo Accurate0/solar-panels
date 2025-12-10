@@ -247,14 +247,19 @@ async fn solar_current(
     let yesterday_results = sqlx::query!(
         "SELECT raw_data FROM solar_data_tsdb WHERE (time + '8 hour')::date = (now() + '8 hour')::date - INTEGER '1' ORDER BY time DESC LIMIT 1"
     )
-    .fetch_one(ctx.solar_api.db())
+    .fetch_optional(ctx.solar_api.db())
     .await?;
 
-    let yesterday_value =
-        serde_json::from_value::<PlantDetailsByPowerStationIdResponse>(yesterday_results.raw_data)?;
+    let yesterday_value = if let Some(data) = yesterday_results {
+        Some(serde_json::from_value::<
+            PlantDetailsByPowerStationIdResponse,
+        >(data.raw_data)?)
+    } else {
+        None
+    };
 
     Ok(Json(SolarCurrentResponse {
-        yesterday_production_kwh: yesterday_value.data.kpi.power,
+        yesterday_production_kwh: yesterday_value.map(|d| d.data.kpi.power).unwrap_or(0f64),
         month_production_kwh: raw_data.data.kpi.month_generation,
         current_production_wh: raw_data.data.kpi.pac,
         today_production_kwh: raw_data.data.kpi.power,
@@ -372,7 +377,7 @@ async fn main() -> anyhow::Result<()> {
     let weather_api = WeatherAPI::new();
 
     let bg_task = BackgroundTask::new(pool, solar_api.clone(), weather_api);
-    let join_handle = if cfg!(debug_assertions) {
+    let join_handle = if !cfg!(debug_assertions) {
         tracing::info!("skipping background thread in debug");
         None
     } else {
