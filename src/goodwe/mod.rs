@@ -114,7 +114,12 @@ impl GoodWeSemsAPI {
                 self.login_and_save().await
             } else {
                 tracing::info!("fetched existing login data");
-                Ok(serde_json::from_value::<LoginData>(latest_login.login_data).unwrap())
+                let value_from_db = serde_json::from_value::<LoginData>(latest_login.login_data);
+                if let Ok(value) = value_from_db {
+                    Ok(value)
+                } else {
+                    self.login_and_save().await
+                }
             }
         } else {
             self.login_and_save().await
