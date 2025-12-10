@@ -10,7 +10,7 @@ use chrono::{FixedOffset, NaiveDateTime};
 use goodwe::{GoodWeSemsAPI, types::PlantDetailsByPowerStationIdResponse};
 use reqwest::Method;
 use serde::Deserialize;
-use sqlx::{Connection, postgres::PgPoolOptions, prelude::FromRow};
+use sqlx::{postgres::PgPoolOptions, prelude::FromRow};
 use std::{future::IntoFuture, ops::Deref, sync::Arc};
 use tokio::task::JoinHandle;
 use tower::limit::GlobalConcurrencyLimitLayer;
@@ -329,20 +329,13 @@ async fn solar_history(
 }
 
 async fn health(ctx: State<BotContext>) -> StatusCode {
-    let resp = ctx.solar_api.db().acquire().await;
-
-    if resp.is_err() {
-        return StatusCode::SERVICE_UNAVAILABLE;
-    }
-
-    let is_db_ok = resp.unwrap().ping().await.is_ok();
     let is_background_task_ok = ctx
         .background_task_handle
         .as_ref()
         .map(|jh| !jh.is_finished())
         .unwrap_or(true);
 
-    if is_db_ok && is_background_task_ok {
+    if is_background_task_ok {
         StatusCode::NO_CONTENT
     } else {
         StatusCode::SERVICE_UNAVAILABLE

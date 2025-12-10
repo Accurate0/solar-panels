@@ -41,7 +41,7 @@ pub struct LoginComponents {
     pub para: Value,
     pub lang_ver: i64,
     pub time_span: i64,
-    pub api: String,
+    pub api: Option<String>,
     pub msg_socket_adr: String,
 }
 
