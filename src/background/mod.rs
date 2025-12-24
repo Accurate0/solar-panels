@@ -2,8 +2,9 @@ use crate::{
     goodwe::{self, GoodWeSemsAPI},
     weather::{self, WeatherAPI},
 };
+use futures::FutureExt;
 use sqlx::PgPool;
-use std::time::Duration;
+use std::{panic::AssertUnwindSafe, time::Duration};
 
 #[derive(Clone)]
 pub struct BackgroundTask {
@@ -85,7 +86,7 @@ impl BackgroundTask {
                     Ok::<(), BackgroundTaskError>(())
                 };
 
-                if let Err(e) = fut.await {
+                if let Err(e) = AssertUnwindSafe(fut).catch_unwind().await {
                     tracing::error!("error fetching data: {e:?}");
                 }
 
