@@ -29,6 +29,9 @@ spec:
             periodSeconds: 30
             successThreshold: 1
             timeoutSeconds: 1
+          env:
+            - name: HOME_GATEWAY_BASE_URL
+              value: http://home-gateway.home-gateway.svc.cluster.local
           envFrom:
             - secretRef:
                 name: solar-managed-secrets
