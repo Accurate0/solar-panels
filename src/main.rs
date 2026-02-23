@@ -219,9 +219,12 @@ fn round(n: Option<f64>) -> Option<f64> {
 pub async fn solar_statistics(
     solar_api: &GoodWeSemsAPI,
 ) -> Result<SolarCurrentStatistics, anyhow::Error> {
-    let avg_15_mins = get_average_for_last_n_minutes(15, solar_api);
-    let avg_1_hour = get_average_for_last_n_minutes(60, solar_api);
-    let avg_3_hours = get_average_for_last_n_minutes(180, solar_api);
+    let avg_15_mins = get_average_for_last_n_minutes(15, solar_api)
+        .instrument(tracing::info_span!("last_15_mins_avg"));
+    let avg_1_hour = get_average_for_last_n_minutes(60, solar_api)
+        .instrument(tracing::info_span!("last_60_mins_avg"));
+    let avg_3_hours = get_average_for_last_n_minutes(180, solar_api)
+        .instrument(tracing::info_span!("last_180_mins_avg"));
 
     let (avg_15_mins, avg_1_hour, avg_3_hours) =
         futures::try_join!(avg_15_mins, avg_1_hour, avg_3_hours)?;
@@ -244,6 +247,7 @@ async fn solar_current(
         "SELECT raw_data FROM solar_data_tsdb WHERE (time + '8 hour')::date = (now() + '8 hour')::date - INTEGER '1' ORDER BY time DESC LIMIT 1"
     )
     .fetch_optional(ctx.solar_api.db())
+    .instrument(tracing::info_span!("get_yesterday_results"))
     .await?;
 
     let yesterday_value = if let Some(data) = yesterday_results {
