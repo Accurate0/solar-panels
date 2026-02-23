@@ -1,10 +1,10 @@
 use axum::{
     Json,
-    body::Body,
     extract::{Query, State},
-    http::{Request, StatusCode},
+    http::StatusCode,
     routing::get,
 };
+use axum_tracing_opentelemetry::middleware::OtelAxumLayer;
 use background::BackgroundTask;
 use chrono::{FixedOffset, NaiveDateTime};
 use goodwe::{GoodWeSemsAPI, types::PlantDetailsByPowerStationIdResponse};
@@ -14,13 +14,7 @@ use sqlx::{postgres::PgPoolOptions, prelude::FromRow};
 use std::{future::IntoFuture, ops::Deref, sync::Arc};
 use tokio::task::JoinHandle;
 use tower::limit::GlobalConcurrencyLimitLayer;
-use tower_http::{
-    LatencyUnit,
-    cors::{AllowHeaders, AllowOrigin, CorsLayer},
-    trace::{DefaultOnRequest, DefaultOnResponse, TraceLayer},
-};
-use tracing::Level;
-use tracing_subscriber::{filter::Targets, layer::SubscriberExt, util::SubscriberInitExt};
+use tower_http::cors::{AllowHeaders, AllowOrigin, CorsLayer};
 use twilight_cache_inmemory::{DefaultCacheModels, InMemoryCacheBuilder, ResourceType};
 use twilight_gateway::{
     ConfigBuilder, Event, EventType, EventTypeFlags, Intents, Shard, ShardId, StreamExt,
@@ -46,6 +40,7 @@ use weather::WeatherAPI;
 
 mod background;
 mod goodwe;
+mod tracing_setup;
 mod types;
 mod weather;
 
@@ -349,10 +344,7 @@ async fn health(ctx: State<BotContext>) -> StatusCode {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    tracing_subscriber::registry()
-        .with(Targets::default().with_default(Level::INFO))
-        .with(tracing_subscriber::fmt::layer())
-        .init();
+    tracing_setup::init();
 
     let database_url = std::env::var("DATABASE_URL")?;
     let token = std::env::var("DISCORD_TOKEN")?;
@@ -417,19 +409,8 @@ async fn main() -> anyhow::Result<()> {
                 .allow_methods([Method::GET, Method::OPTIONS])
                 .allow_headers(AllowHeaders::any()),
         )
-        .layer(
-            TraceLayer::new_for_http()
-                .make_span_with(|request: &Request<Body>| {
-                    tracing::info_span!("api", uri = request.uri().to_string())
-                })
-                .on_request(DefaultOnRequest::new().level(Level::INFO))
-                .on_response(
-                    DefaultOnResponse::new()
-                        .level(Level::INFO)
-                        .latency_unit(LatencyUnit::Millis),
-                ),
-        )
         .layer(GlobalConcurrencyLimitLayer::new(2048))
+        .layer(OtelAxumLayer::default())
         .with_state(context.clone());
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:8000").await.unwrap();

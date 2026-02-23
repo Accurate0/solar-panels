@@ -57,6 +57,7 @@ impl GoodWeSemsAPI {
         }
     }
 
+    #[tracing::instrument(skip(self))]
     pub async fn get_latest_saved_solar_data(&self) -> Result<SavedSolarData, GoodWeSemsAPIError> {
         let solar_data = sqlx::query!(
             "SELECT raw_data, temperature, uv_level FROM solar_data_tsdb ORDER BY time DESC LIMIT 1"
@@ -141,6 +142,7 @@ impl GoodWeSemsAPI {
         Ok(response.data)
     }
 
+    #[tracing::instrument(skip(self))]
     pub async fn login(&self) -> Result<LoginResponse, GoodWeSemsAPIError> {
         let request = self
             .http

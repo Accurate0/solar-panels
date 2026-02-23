@@ -32,6 +32,8 @@ spec:
           env:
             - name: HOME_GATEWAY_BASE_URL
               value: http://home-gateway.home-gateway.svc.cluster.local
+            - name: OTEL_TRACING_URL
+              value: http://monitoring-tempo.monitoring.svc.cluster.local:4318/v1/traces
           envFrom:
             - secretRef:
                 name: solar-managed-secrets
