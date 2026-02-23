@@ -15,6 +15,7 @@ use std::{future::IntoFuture, ops::Deref, sync::Arc};
 use tokio::task::JoinHandle;
 use tower::limit::GlobalConcurrencyLimitLayer;
 use tower_http::cors::{AllowHeaders, AllowOrigin, CorsLayer};
+use tracing::Instrument;
 use twilight_cache_inmemory::{DefaultCacheModels, InMemoryCacheBuilder, ResourceType};
 use twilight_gateway::{
     ConfigBuilder, Event, EventType, EventTypeFlags, Intents, Shard, ShardId, StreamExt,
@@ -278,6 +279,7 @@ async fn solar_history_with_query(
         "SELECT avg(current_kwh) as avg_wh, avg(uv_level) as avg_uv_level, avg(temperature) as avg_temp, time_bucket('5 minutes', time) as bucket_time FROM solar_data_tsdb WHERE time >= $1 GROUP BY bucket_time ORDER BY bucket_time ASC", params.since
     )
     .fetch_all(ctx.solar_api.db())
+    .instrument(tracing::info_span!("history_with_query"))
     .await?
     .into_iter()
     .map(|r| {
