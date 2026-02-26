@@ -7,6 +7,7 @@ use futures::FutureExt;
 use serde::Serialize;
 use sqlx::PgPool;
 use std::{panic::AssertUnwindSafe, time::Duration};
+use tracing::Instrument;
 
 #[derive(Clone)]
 pub struct BackgroundTask {
@@ -137,7 +138,7 @@ impl BackgroundTask {
                     };
 
                     Ok::<(), BackgroundTaskError>(())
-                };
+                }.instrument(tracing::info_span!("background_task"));
 
                 if let Err(e) = AssertUnwindSafe(fut).catch_unwind().await {
                     tracing::error!("error fetching data: {e:?}");
