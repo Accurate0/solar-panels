@@ -23,11 +23,11 @@ services:
       start_period: 1s
 
   db:
-    image: timescale/timescaledb:latest-pg16
+    image: timescale/timescaledb:latest-pg18
     ports:
       - "5432:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - pgdata2:/var/lib/postgresql/data
     command: >
       postgres
       -c shared_preload_libraries='timescaledb'
@@ -41,4 +41,4 @@ services:
       retries: 5
 
 volumes:
-  pgdata:
+  pgdata2:

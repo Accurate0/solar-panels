@@ -14,7 +14,7 @@ pub struct BackgroundTask {
     pool: PgPool,
     solar_api: GoodWeSemsAPI,
     weather_api: WeatherAPI,
-    http_client: reqwest::Client,
+    http_client: reqwest_middleware::ClientWithMiddleware,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -26,7 +26,7 @@ pub enum BackgroundTaskError {
     #[error("a database error occurred: {0}")]
     Database(#[from] sqlx::Error),
     #[error("a http error occurred: {0}")]
-    Http(#[from] reqwest::Error),
+    Http(#[from] reqwest_middleware::Error),
     #[error("unknown error occurred: {0}")]
     Unknown(#[from] anyhow::Error),
 }
@@ -51,7 +51,11 @@ impl BackgroundTask {
             pool,
             solar_api,
             weather_api,
-            http_client: reqwest::ClientBuilder::new().build().unwrap(),
+            http_client: reqwest_middleware::ClientBuilder::new(
+                reqwest::ClientBuilder::new().build().unwrap(),
+            )
+            .with(reqwest_tracing::TracingMiddleware::default())
+            .build(),
         }
     }
 

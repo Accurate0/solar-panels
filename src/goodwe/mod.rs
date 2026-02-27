@@ -6,6 +6,8 @@ use reqwest::{
     Method,
     header::{ACCEPT, CONTENT_TYPE},
 };
+use reqwest_middleware::Extension;
+use reqwest_tracing::DisableOtelPropagation;
 use sqlx::PgPool;
 use tracing::instrument;
 use types::{
@@ -20,7 +22,7 @@ pub struct GoodWeSemsAPI {
     username: String,
     password: String,
     powerstation_id: String,
-    http: reqwest::Client,
+    http: reqwest_middleware::ClientWithMiddleware,
 }
 
 const LOGIN_URL: &str = "https://www.semsportal.com/api/v2/Common/CrossLogin";
@@ -29,6 +31,8 @@ const GET_POWERSTATION_DETAILS_URL: &str =
 
 #[derive(thiserror::Error, Debug)]
 pub enum GoodWeSemsAPIError {
+    #[error("a http error occurred: {0}")]
+    HttpMiddleware(#[from] reqwest_middleware::Error),
     #[error("a http error occurred: {0}")]
     Http(#[from] reqwest::Error),
     #[error("a database error occurred: {0}")]
@@ -50,10 +54,15 @@ impl GoodWeSemsAPI {
             username,
             password,
             powerstation_id,
-            http: reqwest::ClientBuilder::new()
-                .default_headers(headers)
-                .build()
-                .expect("must build http client"),
+            http: reqwest_middleware::ClientBuilder::new(
+                reqwest::ClientBuilder::new()
+                    .default_headers(headers)
+                    .build()
+                    .expect("must build http client"),
+            )
+            .with_init(Extension(DisableOtelPropagation))
+            .with(reqwest_tracing::TracingMiddleware::default())
+            .build(),
         }
     }
 

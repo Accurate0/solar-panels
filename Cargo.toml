@@ -18,7 +18,9 @@ twilight-http = "0.16.0"
 twilight-model = "0.16.0"
 twilight-util = { version = "0.16.0", features = ["builder"] }
 vesper = "0.13.0"
-reqwest = { version = "0.12.15", features = ["json"] }
+reqwest = { version = "0.13", features = ["form", "json"] }
+reqwest-tracing = { version = "0.7.0", features = ["opentelemetry_0_31"] }
+reqwest-middleware = { version = "0.5.1", features = ["json", "form"] }
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.140"
 tower-http = { version = "0.6.2", features = ["trace", "cors"] }
