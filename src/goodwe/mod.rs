@@ -7,12 +7,14 @@ use reqwest::{
     header::{ACCEPT, CONTENT_TYPE},
 };
 use reqwest_middleware::Extension;
-use reqwest_tracing::DisableOtelPropagation;
+use reqwest_tracing::{DisableOtelPropagation, TracingMiddleware};
 use sqlx::PgPool;
 use tracing::instrument;
 use types::{
     LoginData, LoginRequest, LoginResponse, PlantDetailsByPowerStationIdResponse, SavedSolarData,
 };
+
+use crate::tracing_setup::TimeTrace;
 
 pub mod types;
 
@@ -61,7 +63,7 @@ impl GoodWeSemsAPI {
                     .expect("must build http client"),
             )
             .with_init(Extension(DisableOtelPropagation))
-            .with(reqwest_tracing::TracingMiddleware::default())
+            .with(TracingMiddleware::<TimeTrace>::new())
             .build(),
         }
     }

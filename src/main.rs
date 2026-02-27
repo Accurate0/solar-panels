@@ -207,6 +207,7 @@ pub async fn get_average_for_last_n_minutes(
                                                  WHERE (time + '8 hour') > ((NOW() + '8 hour') - MAKE_INTERVAL(mins => $1))"#)
         .bind(s)
         .fetch_optional(solar_api.db())
+        .instrument(tracing::info_span!("solar_average", time_in_mins = s))
         .await?;
 
     Ok(avg_row.and_then(|r| r.avg))
@@ -219,12 +220,9 @@ fn round(n: Option<f64>) -> Option<f64> {
 pub async fn solar_statistics(
     solar_api: &GoodWeSemsAPI,
 ) -> Result<SolarCurrentStatistics, anyhow::Error> {
-    let avg_15_mins = get_average_for_last_n_minutes(15, solar_api)
-        .instrument(tracing::info_span!("last_15_mins_avg"));
-    let avg_1_hour = get_average_for_last_n_minutes(60, solar_api)
-        .instrument(tracing::info_span!("last_60_mins_avg"));
-    let avg_3_hours = get_average_for_last_n_minutes(180, solar_api)
-        .instrument(tracing::info_span!("last_180_mins_avg"));
+    let avg_15_mins = get_average_for_last_n_minutes(15, solar_api);
+    let avg_1_hour = get_average_for_last_n_minutes(60, solar_api);
+    let avg_3_hours = get_average_for_last_n_minutes(180, solar_api);
 
     let (avg_15_mins, avg_1_hour, avg_3_hours) =
         futures::try_join!(avg_15_mins, avg_1_hour, avg_3_hours)?;

@@ -1,9 +1,11 @@
 use crate::{
     get_average_for_last_n_minutes,
     goodwe::{self, GoodWeSemsAPI},
+    tracing_setup::TimeTrace,
     weather::{self, WeatherAPI},
 };
 use futures::FutureExt;
+use reqwest_tracing::TracingMiddleware;
 use serde::Serialize;
 use sqlx::PgPool;
 use std::{panic::AssertUnwindSafe, time::Duration};
@@ -54,7 +56,7 @@ impl BackgroundTask {
             http_client: reqwest_middleware::ClientBuilder::new(
                 reqwest::ClientBuilder::new().build().unwrap(),
             )
-            .with(reqwest_tracing::TracingMiddleware::default())
+            .with(TracingMiddleware::<TimeTrace>::new())
             .build(),
         }
     }

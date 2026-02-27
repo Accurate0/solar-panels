@@ -11,9 +11,38 @@ use opentelemetry_semantic_conventions::resource::{
     DEPLOYMENT_ENVIRONMENT_NAME, SERVICE_NAME, TELEMETRY_SDK_LANGUAGE, TELEMETRY_SDK_NAME,
     TELEMETRY_SDK_VERSION,
 };
+use reqwest_tracing::{ReqwestOtelSpanBackend, default_on_request_end, reqwest_otel_span};
 use std::time::Duration;
-use tracing::Level;
+use tokio::time::Instant;
+use tracing::{Level, Span};
 use tracing_subscriber::{filter::Targets, layer::SubscriberExt, util::SubscriberInitExt};
+
+pub struct TimeTrace;
+impl ReqwestOtelSpanBackend for TimeTrace {
+    fn on_request_start(req: &reqwest::Request, extension: &mut http::Extensions) -> Span {
+        let url = req.url().as_str();
+        extension.insert(Instant::now());
+
+        reqwest_otel_span!(
+            name = format!("{} {}", req.method(), url),
+            req,
+            url = url,
+            time_elapsed = tracing::field::Empty,
+            time_elapsed_formatted = tracing::field::Empty
+        )
+    }
+
+    fn on_request_end(
+        span: &Span,
+        outcome: &reqwest_middleware::Result<reqwest::Response>,
+        extension: &mut http::Extensions,
+    ) {
+        let time_elapsed = extension.get::<Instant>().unwrap().elapsed().as_millis() as i64;
+        default_on_request_end(span, outcome);
+        span.record("time_elapsed", time_elapsed);
+        span.record("time_elapsed_formatted", format!("{time_elapsed}ms"));
+    }
+}
 
 pub fn external_tracer() -> Tracer {
     let ingest_url = std::env::var("OTEL_TRACING_URL").unwrap();
