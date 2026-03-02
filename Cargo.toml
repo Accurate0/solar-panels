@@ -28,7 +28,7 @@ tower = { version = "0.5.1", features = ["limit"] }
 base64 = "0.22.1"
 chrono-tz = "0.10.3"
 futures = "0.3.31"
-quick-xml = { version = "0.38.0", features = ["serialize"] }
+quick-xml = { version = "0.39.0", features = ["serialize"] }
 
 opentelemetry = { version = "0.31.0", features = ["metrics", "trace"] }
 opentelemetry-otlp = { version = "0.31.0", features = ["trace", "metrics", "grpc-tonic", "reqwest-blocking-client", "logs", "reqwest-rustls"] }
