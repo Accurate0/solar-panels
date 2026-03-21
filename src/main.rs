@@ -12,7 +12,7 @@ use reqwest::Method;
 use serde::Deserialize;
 use sqlx::{postgres::PgPoolOptions, prelude::FromRow};
 use std::{future::IntoFuture, ops::Deref, sync::Arc};
-use tokio::task::JoinHandle;
+use tokio_cron_scheduler::{JobBuilder, JobScheduler};
 use tower::limit::GlobalConcurrencyLimitLayer;
 use tower_http::cors::{AllowHeaders, AllowOrigin, CorsLayer};
 use tracing::Instrument;
@@ -58,7 +58,6 @@ impl Deref for BotContext {
 
 struct BotContextInner {
     solar_api: GoodWeSemsAPI,
-    background_task_handle: Option<JoinHandle<()>>,
 }
 
 async fn handle_event(event: Event, _http: Arc<HttpClient>) -> anyhow::Result<()> {
@@ -332,18 +331,8 @@ async fn solar_history(
     Ok(Json(SolarHistoryResponse { today, yesterday }))
 }
 
-async fn health(ctx: State<BotContext>) -> StatusCode {
-    let is_background_task_ok = ctx
-        .background_task_handle
-        .as_ref()
-        .map(|jh| !jh.is_finished())
-        .unwrap_or(true);
-
-    if is_background_task_ok {
-        StatusCode::NO_CONTENT
-    } else {
-        StatusCode::SERVICE_UNAVAILABLE
-    }
+async fn health(_ctx: State<BotContext>) -> StatusCode {
+    StatusCode::NO_CONTENT
 }
 
 #[tokio::main]
@@ -372,22 +361,23 @@ async fn main() -> anyhow::Result<()> {
 
     let weather_api = WeatherAPI::new();
 
+    let sched = JobScheduler::new().await?;
     let bg_task = BackgroundTask::new(pool, solar_api.clone(), weather_api);
-    let join_handle = if cfg!(debug_assertions) {
-        tracing::info!("skipping background thread in debug");
-        None
-    } else {
-        tracing::info!("spawning background thread");
-        Some(bg_task.start())
-    };
+    let job = JobBuilder::new()
+        .with_timezone(chrono_tz::Australia::Perth)
+        .with_cron_job_type()
+        .with_schedule("every 1 minute")?
+        .with_run_async(Box::new(move |uuid, mut _l| {
+            tracing::info!("running bg task: {uuid}");
+            let bg_task = bg_task.clone();
+            Box::pin(async move { bg_task.run_task().await })
+        }))
+        .build()?;
 
-    let context = BotContext(
-        BotContextInner {
-            solar_api,
-            background_task_handle: join_handle,
-        }
-        .into(),
-    );
+    sched.add(job).await?;
+    sched.start().await?;
+
+    let context = BotContext(BotContextInner { solar_api }.into());
 
     let config = ConfigBuilder::new(token.clone(), Intents::GUILD_MESSAGES).build();
     let mut shard = Shard::with_config(ShardId::ONE, config);

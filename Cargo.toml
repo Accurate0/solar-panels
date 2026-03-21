@@ -41,6 +41,7 @@ tracing-opentelemetry = "0.32.1"
 axum-tracing-opentelemetry = "0.33.0"
 opentelemetry-appender-tracing = "0.31.1"
 http = "1.4.0"
+tokio-cron-scheduler = { version = "0.15.1", features = ["english", "tracing-subscriber"] }
 
 [patch.crates-io]
 vesper = { git = "https://github.com/AlvaroMS25/vesper.git", branch = "next" }
