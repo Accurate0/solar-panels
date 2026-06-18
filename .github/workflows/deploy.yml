@@ -10,7 +10,7 @@ jobs:
     permissions:
       packages: write
 
-    uses: Accurate0/workflows/.github/workflows/build-push-docker.yaml@main
+    uses: Accurate0/workflows/.github/workflows/build-push-docker.yaml@1daec34b2444f1c75a17f58ed0a70a148c0def3b # main
     with:
       directory: web
       image-name: solar-web
@@ -21,7 +21,7 @@ jobs:
     permissions:
       packages: write
 
-    uses: Accurate0/workflows/.github/workflows/build-push-docker.yaml@main
+    uses: Accurate0/workflows/.github/workflows/build-push-docker.yaml@1daec34b2444f1c75a17f58ed0a70a148c0def3b # main
     with:
       directory: .
       image-name: solar
@@ -33,7 +33,7 @@ jobs:
     needs:
       - build
       - build-web
-    uses: Accurate0/workflows/.github/workflows/deploy-app-k8s-v2.yaml@main
+    uses: Accurate0/workflows/.github/workflows/deploy-app-k8s-v2.yaml@1daec34b2444f1c75a17f58ed0a70a148c0def3b # main
     with:
       service-name: solar-panels
       images: ghcr.io/accurate0/solar,ghcr.io/accurate0/solar-web
