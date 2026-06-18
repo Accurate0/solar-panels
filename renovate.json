@@ -1,6 +1,4 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "argocd": {
-    "fileMatch": ["application.yaml"]
-  }
+  "extends": ["local>anurag/k8s//platform-services/renovate/presets/default"]
 }
