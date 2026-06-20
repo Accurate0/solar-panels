@@ -20,9 +20,15 @@ use twilight_cache_inmemory::{DefaultCacheModels, InMemoryCacheBuilder, Resource
 use twilight_gateway::{
     ConfigBuilder, Event, EventType, EventTypeFlags, Intents, Shard, ShardId, StreamExt,
 };
-use twilight_http::Client as HttpClient;
+use twilight_http::{Client as HttpClient, client::InteractionClient};
 use twilight_model::{
-    application::interaction::InteractionContextType, oauth::ApplicationIntegrationType,
+    application::{
+        command::CommandType,
+        interaction::{Interaction, InteractionContextType, InteractionData, InteractionType},
+    },
+    http::interaction::{InteractionResponse, InteractionResponseType},
+    id::{Id, marker::ApplicationMarker},
+    oauth::ApplicationIntegrationType,
 };
 use twilight_util::builder::{
     command::CommandBuilder,
@@ -31,11 +37,6 @@ use twilight_util::builder::{
 use types::{
     AppError, GenerationHistory, SolarCurrentResponse, SolarCurrentStatistics,
     SolarCurrentStatisticsAverages, SolarHistoryResponse, SolarHistoryV2Response,
-};
-use vesper::{
-    framework::DefaultError,
-    macros::{command, error_handler},
-    prelude::{DefaultCommandResult, Framework, SlashContext},
 };
 use weather::WeatherAPI;
 
@@ -75,8 +76,11 @@ async fn handle_event(event: Event, _http: Arc<HttpClient>) -> anyhow::Result<()
     Ok(())
 }
 
-#[error_handler]
-async fn handle_interaction_error(ctx: &mut SlashContext<BotContext>, error: DefaultError) {
+async fn handle_interaction_error(
+    interaction: &Interaction,
+    interaction_client: &InteractionClient<'_>,
+    error: anyhow::Error,
+) {
     let fut = async {
         let error = if error.to_string().contains("Missing Access") {
             "This channel is not accessible to the bot...".to_string()
@@ -91,8 +95,8 @@ async fn handle_interaction_error(ctx: &mut SlashContext<BotContext>, error: Def
             .validate()?
             .build();
 
-        ctx.interaction_client
-            .update_response(&ctx.interaction.token)
+        interaction_client
+            .update_response(&interaction.token)
             .embeds(Some(&[embed]))
             .await?;
 
@@ -106,14 +110,52 @@ async fn handle_interaction_error(ctx: &mut SlashContext<BotContext>, error: Def
     tracing::error!("error in interaction: {error:?}");
 }
 
-#[command]
-#[description = "get latest solar details"]
-#[error_handler(handle_interaction_error)]
-async fn solar(ctx: &mut SlashContext<BotContext>) -> DefaultCommandResult {
-    ctx.defer(false).await?;
+/// Dispatches an incoming interaction to the matching command handler,
+/// routing any error to the shared error handler.
+async fn process_interaction(
+    interaction: Interaction,
+    http: Arc<HttpClient>,
+    app_id: Id<ApplicationMarker>,
+    context: BotContext,
+) {
+    if interaction.kind != InteractionType::ApplicationCommand {
+        return;
+    }
 
-    let solar_data = ctx.data.solar_api.get_latest_saved_solar_data().await?;
-    let SolarCurrentStatistics { averages } = solar_statistics(&ctx.data.solar_api).await?;
+    let Some(InteractionData::ApplicationCommand(data)) = &interaction.data else {
+        return;
+    };
+
+    let interaction_client = http.interaction(app_id);
+
+    match data.name.as_str() {
+        "solar" => {
+            if let Err(error) = solar(&interaction, &interaction_client, &context).await {
+                handle_interaction_error(&interaction, &interaction_client, error).await;
+            }
+        }
+        other => tracing::warn!("unhandled command: {other}"),
+    }
+}
+
+async fn solar(
+    interaction: &Interaction,
+    interaction_client: &InteractionClient<'_>,
+    context: &BotContext,
+) -> anyhow::Result<()> {
+    interaction_client
+        .create_response(
+            interaction.id,
+            &interaction.token,
+            &InteractionResponse {
+                kind: InteractionResponseType::DeferredChannelMessageWithSource,
+                data: None,
+            },
+        )
+        .await?;
+
+    let solar_data = context.solar_api.get_latest_saved_solar_data().await?;
+    let SolarCurrentStatistics { averages } = solar_statistics(&context.solar_api).await?;
 
     let embed = EmbedBuilder::new()
         .title("Solar panels")
@@ -184,8 +226,8 @@ async fn solar(ctx: &mut SlashContext<BotContext>) -> DefaultCommandResult {
         .validate()?
         .build();
 
-    ctx.interaction_client
-        .update_response(&ctx.interaction.token)
+    interaction_client
+        .update_response(&interaction.token)
         .embeds(Some(&[embed]))
         .await?;
 
@@ -337,6 +379,10 @@ async fn health(_ctx: State<BotContext>) -> StatusCode {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    rustls::crypto::aws_lc_rs::default_provider()
+        .install_default()
+        .expect("failed to install default crypto provider");
+
     tracing_setup::init();
 
     let database_url = std::env::var("DATABASE_URL")?;
@@ -412,44 +458,27 @@ async fn main() -> anyhow::Result<()> {
     tokio::spawn(axum::serve(listener, app).into_future());
 
     let app_id = http.current_user_application().await?.model().await?.id;
-
-    let framework = Arc::new(
-        Framework::builder(Arc::clone(&http), app_id, context)
-            .command(solar)
-            .build(),
-    );
-
-    framework.register_global_commands().await?;
     let interaction_client = http.interaction(app_id);
-    let global_commands = interaction_client.global_commands().await?.model().await?;
 
-    let mut updated_commands = Vec::with_capacity(global_commands.len());
-    for global_command in global_commands {
-        let mut command = CommandBuilder::new(
-            global_command.name,
-            global_command.description,
-            global_command.kind,
-        )
-        .integration_types(vec![
-            ApplicationIntegrationType::GuildInstall,
-            ApplicationIntegrationType::UserInstall,
-        ])
-        .contexts(vec![
-            InteractionContextType::BotDm,
-            InteractionContextType::PrivateChannel,
-            InteractionContextType::Guild,
-        ]);
+    let solar_command = CommandBuilder::new(
+        "solar",
+        "get latest solar details",
+        CommandType::ChatInput,
+    )
+    .integration_types(vec![
+        ApplicationIntegrationType::GuildInstall,
+        ApplicationIntegrationType::UserInstall,
+    ])
+    .contexts(vec![
+        InteractionContextType::BotDm,
+        InteractionContextType::PrivateChannel,
+        InteractionContextType::Guild,
+    ])
+    .build();
 
-        for option in global_command.options {
-            command = command.option(option);
-        }
-
-        updated_commands.push(command.build());
-    }
-
-    tracing::info!("updating commands: {}", updated_commands.len());
+    tracing::info!("updating commands: 1");
     interaction_client
-        .set_global_commands(&updated_commands)
+        .set_global_commands(&[solar_command])
         .await?;
 
     tracing::info!("starting event loop");
@@ -473,10 +502,10 @@ async fn main() -> anyhow::Result<()> {
         }
 
         if let Event::InteractionCreate(i) = event {
-            let clone = Arc::clone(&framework);
+            let http = Arc::clone(&http);
+            let context = context.clone();
             tokio::spawn(async move {
-                let inner = i.0;
-                clone.process(inner).await;
+                process_interaction(i.0, http, app_id, context).await;
             });
 
             continue;
