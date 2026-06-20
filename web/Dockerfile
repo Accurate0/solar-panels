@@ -1,4 +1,4 @@
-FROM node:23.3.0-alpine3.19 AS build
+FROM node:24-alpine AS build
 
 WORKDIR /app
 ENV PNPM_HOME="/pnpm"
@@ -9,7 +9,7 @@ COPY . /app
 
 RUN CI=true pnpm install
 
-ENV PATH /app/node_modules/.bin:$PATH
+ENV PATH=/app/node_modules/.bin:$PATH
 
 COPY . .
 
