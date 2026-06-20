@@ -102,6 +102,16 @@ ${colorConfig
 
 const ChartTooltip = RechartsPrimitive.Tooltip
 
+// Recharts 3 no longer surfaces payload/label item shapes through its prop
+// types, so we describe the parts we rely on explicitly.
+type ChartPayloadItem = {
+  name?: string
+  value?: number | string
+  dataKey?: string | number
+  color?: string
+  payload?: Record<string, unknown> & { fill?: string }
+}
+
 function ChartTooltipContent({
   active,
   payload,
@@ -116,8 +126,23 @@ function ChartTooltipContent({
   color,
   nameKey,
   labelKey,
-}: React.ComponentProps<typeof RechartsPrimitive.Tooltip> &
-  React.ComponentProps<"div"> & {
+}: React.ComponentProps<"div"> & {
+    active?: boolean
+    payload?: ChartPayloadItem[]
+    label?: unknown
+    labelFormatter?: (
+      label: unknown,
+      payload: ChartPayloadItem[]
+    ) => React.ReactNode
+    formatter?: (
+      value: number | string,
+      name: string,
+      item: ChartPayloadItem,
+      index: number,
+      payload: ChartPayloadItem["payload"]
+    ) => React.ReactNode
+    color?: string
+    labelClassName?: string
     hideLabel?: boolean
     hideIndicator?: boolean
     indicator?: "line" | "dot" | "dashed"
@@ -135,10 +160,11 @@ function ChartTooltipContent({
     const key = `${labelKey || item?.dataKey || item?.name || "value"}`
     const itemConfig = getPayloadConfigFromPayload(config, item, key)
     const value =
-      key in item.payload ? item.payload[key] :
-      !labelKey && typeof label === "string"
-        ? config[label as keyof typeof config]?.label || label
-        : itemConfig?.label
+      item?.payload && key in item.payload
+        ? item.payload[key]
+        : !labelKey && typeof label === "string"
+          ? config[label as keyof typeof config]?.label || label
+          : itemConfig?.label
 
     if (labelFormatter) {
       return (
@@ -152,7 +178,11 @@ function ChartTooltipContent({
       return null
     }
 
-    return <div className={cn("font-medium", labelClassName)}>{value}</div>
+    return (
+      <div className={cn("font-medium", labelClassName)}>
+        {value as React.ReactNode}
+      </div>
+    )
   }, [
     label,
     labelFormatter,
@@ -181,7 +211,7 @@ function ChartTooltipContent({
         {payload.map((item, index) => {
           const key = `${nameKey || item.name || item.dataKey || "value"}`
           const itemConfig = getPayloadConfigFromPayload(config, item, key)
-          const indicatorColor = color || item.payload.fill || item.color
+          const indicatorColor = color || item.payload?.fill || item.color
 
           return (
             <div
@@ -255,8 +285,9 @@ function ChartLegendContent({
   payload,
   verticalAlign = "bottom",
   nameKey,
-}: React.ComponentProps<"div"> &
-  Pick<RechartsPrimitive.LegendProps, "payload" | "verticalAlign"> & {
+}: React.ComponentProps<"div"> & {
+    payload?: ChartPayloadItem[]
+    verticalAlign?: "top" | "bottom"
     hideIcon?: boolean
     nameKey?: string
   }) {
