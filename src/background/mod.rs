@@ -61,7 +61,7 @@ impl BackgroundTask {
         }
     }
 
-    #[instrument(name = "BackgroundTask::run_task", skip(self))]
+    #[instrument(name = "BackgroundTask::run_task", skip(self), fields(otel.kind = "internal"))]
     pub async fn run_task(&self) {
         let fut = async move {
             tracing::info!("fetching data");
