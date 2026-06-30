@@ -433,7 +433,6 @@ async fn main() -> anyhow::Result<()> {
         .build();
 
     let routes = axum::Router::new()
-        .route("/health", get(health))
         .route("/current", get(solar_current))
         .route("/history", get(solar_history))
         .route("/v2/history", get(solar_history_with_query));
@@ -449,8 +448,9 @@ async fn main() -> anyhow::Result<()> {
                 .allow_methods([Method::GET, Method::OPTIONS])
                 .allow_headers(AllowHeaders::any()),
         )
-        .layer(GlobalConcurrencyLimitLayer::new(2048))
         .layer(OtelAxumLayer::default())
+        .route("/api/health", get(health))
+        .layer(GlobalConcurrencyLimitLayer::new(2048))
         .with_state(context.clone());
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:8000").await.unwrap();
@@ -460,21 +460,18 @@ async fn main() -> anyhow::Result<()> {
     let app_id = http.current_user_application().await?.model().await?.id;
     let interaction_client = http.interaction(app_id);
 
-    let solar_command = CommandBuilder::new(
-        "solar",
-        "get latest solar details",
-        CommandType::ChatInput,
-    )
-    .integration_types(vec![
-        ApplicationIntegrationType::GuildInstall,
-        ApplicationIntegrationType::UserInstall,
-    ])
-    .contexts(vec![
-        InteractionContextType::BotDm,
-        InteractionContextType::PrivateChannel,
-        InteractionContextType::Guild,
-    ])
-    .build();
+    let solar_command =
+        CommandBuilder::new("solar", "get latest solar details", CommandType::ChatInput)
+            .integration_types(vec![
+                ApplicationIntegrationType::GuildInstall,
+                ApplicationIntegrationType::UserInstall,
+            ])
+            .contexts(vec![
+                InteractionContextType::BotDm,
+                InteractionContextType::PrivateChannel,
+                InteractionContextType::Guild,
+            ])
+            .build();
 
     tracing::info!("updating commands: 1");
     interaction_client
