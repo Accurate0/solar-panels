@@ -1,0 +1,33 @@
+name: Deploy Solar Web
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "web/**"
+      - ".github/workflows/deploy-solar-web.yml"
+  workflow_dispatch:
+
+jobs:
+  build-web:
+    permissions:
+      packages: write
+
+    uses: Accurate0/workflows/.github/workflows/build-push-docker.yaml@cb53fcb62f58d8a064a8913603d6cc28bebc84a6 # main
+    with:
+      directory: web
+      image-name: solar-web
+      docker-build-args: ""
+      use-rust-caching: true
+
+  deploy:
+    needs:
+      - build-web
+    uses: Accurate0/workflows/.github/workflows/deploy-app-k8s-v2.yaml@cb53fcb62f58d8a064a8913603d6cc28bebc84a6 # main
+    with:
+      service-name: solar-panels
+      images: ghcr.io/accurate0/solar-web
+      manifests-path: projects/solar-panels/manifests
+      tag: ${{ github.sha }}
+    secrets:
+      FORGEJO_TOKEN: ${{ secrets.FORGEJO_CI_IMAGE_UPDATER }}
