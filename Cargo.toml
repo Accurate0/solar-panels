@@ -24,7 +24,7 @@ serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.150"
 tower-http = { version = "0.7.0", features = ["trace", "cors"] }
 tower = { version = "0.5.1", features = ["limit"] }
-base64 = "0.22.1"
+base64 = "0.23.0"
 rustls = "0.23"
 chrono-tz = "0.10.3"
 futures = "0.3.31"
